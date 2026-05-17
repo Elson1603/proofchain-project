@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { DashboardShell } from "@/components/proofchain/dashboard-shell";
 import { submissions } from "@/components/proofchain/mock-data";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ESCROW_CONTRACT_ADDRESS, connectWallet, getEscrowContract } from "@/lib/escrow";
 
 export const Route = createFileRoute("/client/approval-workflow")({
   head: () => ({
@@ -25,6 +28,85 @@ const clientNav = [
 ];
 
 function ApprovalWorkflowPage() {
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState("0");
+  const [milestoneIndex, setMilestoneIndex] = useState("0");
+  const [status, setStatus] = useState<string | null>(null);
+  const [isBusy, setIsBusy] = useState(false);
+
+  const contractLabel = ESCROW_CONTRACT_ADDRESS
+    ? `${ESCROW_CONTRACT_ADDRESS.slice(0, 6)}...${ESCROW_CONTRACT_ADDRESS.slice(-4)}`
+    : "Not set";
+
+  const parseUint = (value: string, field: string) => {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      throw new Error(`Invalid ${field}. Use a non-negative number.`);
+    }
+    return parsed;
+  };
+
+  const runTx = async (label: string, action: () => Promise<{ hash: string; wait: () => Promise<unknown> }>) => {
+    setIsBusy(true);
+    setStatus(`${label}...`);
+
+    try {
+      const tx = await action();
+      setStatus(`${label} submitted: ${tx.hash}`);
+      await tx.wait();
+      setStatus(`${label} confirmed.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Transaction failed";
+      setStatus(message);
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleConnect = async () => {
+    setIsBusy(true);
+    setStatus(null);
+
+    try {
+      const { address } = await connectWallet();
+      setWalletAddress(address);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Wallet connection failed";
+      setStatus(message);
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleApproveMilestone = async () => {
+    const projectValue = parseUint(projectId, "project ID");
+    const milestoneValue = parseUint(milestoneIndex, "milestone index");
+
+    await runTx("Approve milestone", async () => {
+      const contract = await getEscrowContract();
+      return contract.approveMilestone(projectValue, milestoneValue);
+    });
+  };
+
+  const handleReleasePayment = async () => {
+    const projectValue = parseUint(projectId, "project ID");
+    const milestoneValue = parseUint(milestoneIndex, "milestone index");
+
+    await runTx("Release payment", async () => {
+      const contract = await getEscrowContract();
+      return contract.releasePayment(projectValue, milestoneValue);
+    });
+  };
+
+  const handleRaiseDispute = async () => {
+    const projectValue = parseUint(projectId, "project ID");
+
+    await runTx("Raise dispute", async () => {
+      const contract = await getEscrowContract();
+      return contract.raiseDispute(projectValue);
+    });
+  };
+
   return (
     <DashboardShell
       title="Approval Workflow"
@@ -32,6 +114,62 @@ function ApprovalWorkflowPage() {
       navItems={clientNav}
     >
       <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+        <article className="glass-panel rounded-xl p-4">
+          <h2 className="text-base font-semibold text-foreground">Escrow actions</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Contract: {contractLabel}</p>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              Wallet: {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : "Not connected"}
+            </p>
+            <Button size="sm" onClick={handleConnect} disabled={isBusy}>
+              {walletAddress ? "Wallet connected" : "Connect MetaMask"}
+            </Button>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground" htmlFor="projectId">
+                Project ID
+              </label>
+              <Input
+                id="projectId"
+                value={projectId}
+                onChange={(event) => setProjectId(event.target.value)}
+                className="bg-secondary/30"
+                inputMode="numeric"
+                placeholder="0"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground" htmlFor="milestoneIndex">
+                Milestone index
+              </label>
+              <Input
+                id="milestoneIndex"
+                value={milestoneIndex}
+                onChange={(event) => setMilestoneIndex(event.target.value)}
+                className="bg-secondary/30"
+                inputMode="numeric"
+                placeholder="0"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button size="sm" onClick={handleApproveMilestone} disabled={isBusy}>
+              Approve milestone
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleReleasePayment} disabled={isBusy}>
+              Release payment
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleRaiseDispute} disabled={isBusy}>
+              Raise dispute
+            </Button>
+          </div>
+          {status ? <p className="mt-3 text-xs text-muted-foreground">{status}</p> : null}
+        </article>
+
         <article className="glass-panel rounded-xl p-4">
           <h2 className="text-base font-semibold text-foreground">Pending submissions</h2>
           <div className="mt-4 space-y-3">
@@ -54,7 +192,6 @@ function ApprovalWorkflowPage() {
             ))}
           </div>
         </article>
-
         <motion.article
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

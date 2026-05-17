@@ -4,7 +4,12 @@ import { milestonesService } from './service'
 export const milestonesController = {
   async list(req: Request, res: Response, next: NextFunction) {
     try {
-      res.json(await milestonesService.list())
+      const filters = {
+        projectId: typeof req.query.projectId === 'string' ? req.query.projectId : undefined,
+        status: typeof req.query.status === 'string' ? req.query.status : undefined,
+      }
+
+      res.json(await milestonesService.list(filters))
     } catch (error) {
       next(error)
     }

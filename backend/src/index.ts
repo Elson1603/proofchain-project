@@ -4,6 +4,9 @@ import dotenv from 'dotenv'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import authRoutes from './modules/auth/routes'
+import milestonesRoutes from './modules/milestones/routes'
+import projectsRoutes from './modules/projects/routes'
+import submissionsRoutes from './modules/submissions/routes'
 
 dotenv.config()
 
@@ -29,6 +32,9 @@ app.use(
 app.use(express.json({ limit: '1mb' }))
 
 app.use('/api/auth', authRoutes)
+app.use('/api/projects', projectsRoutes)
+app.use('/api/milestones', milestonesRoutes)
+app.use('/api/submissions', submissionsRoutes)
 
 // Health check route
 app.get('/', (req: Request, res: Response) => {

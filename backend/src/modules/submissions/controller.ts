@@ -4,7 +4,12 @@ import { submissionsService } from './service'
 export const submissionsController = {
   async list(req: Request, res: Response, next: NextFunction) {
     try {
-      res.json(await submissionsService.list())
+      const filters = {
+        milestoneId: typeof req.query.milestoneId === 'string' ? req.query.milestoneId : undefined,
+        submittedById: typeof req.query.submittedById === 'string' ? req.query.submittedById : undefined,
+      }
+
+      res.json(await submissionsService.list(filters))
     } catch (error) {
       next(error)
     }
