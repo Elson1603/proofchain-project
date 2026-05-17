@@ -11,71 +11,163 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fullName      String
-  username      String    @unique
-  email         String    @unique
-  passwordHash  String
-  bio           String?
-  walletAddress String?   @unique
-  role          String    @default("user")
-  isVerified    Boolean   @default(false)
-  createdAt     DateTime  @default(now())
+enum UserRole {
+  FREELANCER
+  CLIENT
+  ADMIN
+}
 
-  projects       Project[]
-  submissions    Submission[]
-  notifications  Notification[]
+model User {
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  // Wallet Auth
+  walletAddress    String      @unique
+
+  // Profile
+  fullName         String?
+  username         String?     @unique
+  email            String?     @unique
+  profileImage     String?
+  bio              String?
+
+  // Security
+  passwordHash     String?
+  nonce            String?
+  nonceExpiresAt   DateTime?
+
+  // Role & Reputation
+  role             UserRole    @default(FREELANCER)
+  reputationScore  Float       @default(0)
+
+  // Metadata
+  profileMetadata  Json?
+
+  isVerified       Boolean     @default(false)
+
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  // Relations
+  projects         Project[]
+  submissions      Submission[]
+  notifications    Notification[]
+  sessions         Session[]
+  linkedWallets    UserWallet[]
+
+  @@index([walletAddress])
+  @@index([role])
+  @@index([createdAt])
+}
+
+model Session {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  userId        String   @db.Uuid
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  refreshToken  String   @unique
+
+  deviceInfo    String?
+  ipAddress     String?
+
+  expiresAt     DateTime
+
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([refreshToken])
+  @@index([expiresAt])
+}
+
+model UserWallet {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  userId         String   @db.Uuid
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  walletAddress  String   @unique
+  isPrimary      Boolean  @default(false)
+  linkedAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([walletAddress])
 }
 
 model Project {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title       String
-  description String?
-  status      String   @default("open")
-  budget      Float?
-  createdAt   DateTime @default(now())
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  ownerId String @db.Uuid
-  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
 
-  milestones Milestone[]
+  status        String   @default("open")
+
+  budget        Float?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  ownerId       String   @db.Uuid
+  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  milestones    Milestone[]
+
+  @@index([ownerId])
+  @@index([status])
 }
 
 model Milestone {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title       String
-  description String?
-  amount      Float
-  status      String   @default("pending")
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  projectId String  @db.Uuid
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
 
-  submissions Submission[]
+  amount        Float
+
+  status        String   @default("pending")
+
+  createdAt     DateTime @default(now())
+
+  projectId     String   @db.Uuid
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  submissions   Submission[]
+
+  @@index([projectId])
+  @@index([status])
 }
 
 model Submission {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  githubLink String?
-  demoLink   String?
-  remarks    String?
-  createdAt  DateTime @default(now())
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  milestoneId String    @db.Uuid
-  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  githubLink      String?
+  demoLink        String?
+  remarks         String?
 
-  submittedById String @db.Uuid
-  submittedBy   User   @relation(fields: [submittedById], references: [id], onDelete: Cascade)
+  createdAt       DateTime    @default(now())
+
+  milestoneId     String      @db.Uuid
+  milestone       Milestone   @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  submittedById   String      @db.Uuid
+  submittedBy     User        @relation(fields: [submittedById], references: [id], onDelete: Cascade)
+
+  @@index([milestoneId])
+  @@index([submittedById])
 }
 
 model Notification {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title     String
-  message   String
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
 
-  userId String @db.Uuid
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  message       String
+
+  isRead        Boolean   @default(false)
+
+  createdAt     DateTime  @default(now())
+
+  userId        String    @db.Uuid
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
 }
