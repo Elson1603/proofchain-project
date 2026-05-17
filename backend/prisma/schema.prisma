@@ -1,0 +1,81 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName      String
+  username      String    @unique
+  email         String    @unique
+  passwordHash  String
+  bio           String?
+  walletAddress String?   @unique
+  role          String    @default("user")
+  isVerified    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  projects       Project[]
+  submissions    Submission[]
+  notifications  Notification[]
+}
+
+model Project {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  description String?
+  status      String   @default("open")
+  budget      Float?
+  createdAt   DateTime @default(now())
+
+  ownerId String @db.Uuid
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  milestones Milestone[]
+}
+
+model Milestone {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  description String?
+  amount      Float
+  status      String   @default("pending")
+
+  projectId String  @db.Uuid
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  submissions Submission[]
+}
+
+model Submission {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  githubLink String?
+  demoLink   String?
+  remarks    String?
+  createdAt  DateTime @default(now())
+
+  milestoneId String    @db.Uuid
+  milestone   Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  submittedById String @db.Uuid
+  submittedBy   User   @relation(fields: [submittedById], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
