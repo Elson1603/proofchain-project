@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,48 +6,28 @@ datasource db {
   provider = "postgresql"
 }
 
-enum UserRole {
-  FREELANCER
-  CLIENT
-  ADMIN
-}
-
 model User {
-  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
-  // Wallet Auth
-  walletAddress    String      @unique
-
-  // Profile
-  fullName         String?
-  username         String?     @unique
-  email            String?     @unique
-  profileImage     String?
-  bio              String?
-
-  // Security
-  passwordHash     String?
-  nonce            String?
-  nonceExpiresAt   DateTime?
-
-  // Role & Reputation
-  role             UserRole    @default(FREELANCER)
-  reputationScore  Float       @default(0)
-
-  // Metadata
-  profileMetadata  Json?
-
-  isVerified       Boolean     @default(false)
-
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-
-  // Relations
-  projects         Project[]
-  submissions      Submission[]
-  notifications    Notification[]
-  sessions         Session[]
-  linkedWallets    UserWallet[]
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName        String?
+  username        String?        @unique
+  email           String?        @unique
+  passwordHash    String?
+  bio             String?
+  walletAddress   String         @unique
+  isVerified      Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  nonce           String?
+  nonceExpiresAt  DateTime?
+  profileImage    String?
+  profileMetadata Json?
+  reputationScore Float          @default(0)
+  updatedAt       DateTime       @updatedAt
+  role            UserRole       @default(FREELANCER)
+  notifications   Notification[]
+  linkedWallets   UserWallet[]
+  projects        Project[]
+  sessions        Session[]
+  submissions     Submission[]
 
   @@index([walletAddress])
   @@index([role])
@@ -60,19 +35,14 @@ model User {
 }
 
 model Session {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
-  userId        String   @db.Uuid
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  refreshToken  String   @unique
-
-  deviceInfo    String?
-  ipAddress     String?
-
-  expiresAt     DateTime
-
-  createdAt     DateTime @default(now())
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @db.Uuid
+  refreshToken String   @unique
+  deviceInfo   String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([refreshToken])
@@ -80,94 +50,78 @@ model Session {
 }
 
 model UserWallet {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
-  userId         String   @db.Uuid
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  walletAddress  String   @unique
-  isPrimary      Boolean  @default(false)
-  linkedAt       DateTime @default(now())
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @db.Uuid
+  walletAddress String   @unique
+  isPrimary     Boolean  @default(false)
+  linkedAt      DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([walletAddress])
 }
 
 model Project {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
-  title         String
-  description   String?
-
-  status        String   @default("open")
-
-  budget        Float?
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  ownerId       String   @db.Uuid
-  owner         User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-
-  milestones    Milestone[]
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  description String?
+  status      String      @default("open")
+  budget      Float?
+  createdAt   DateTime    @default(now())
+  ownerId     String      @db.Uuid
+  updatedAt   DateTime    @updatedAt
+  milestones  Milestone[]
+  owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@index([ownerId])
   @@index([status])
 }
 
 model Milestone {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
-  title         String
-  description   String?
-
-  amount        Float
-
-  status        String   @default("pending")
-
-  createdAt     DateTime @default(now())
-
-  projectId     String   @db.Uuid
-  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  submissions   Submission[]
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  description String?
+  amount      Float
+  status      String       @default("pending")
+  projectId   String       @db.Uuid
+  createdAt   DateTime     @default(now())
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  submissions Submission[]
 
   @@index([projectId])
   @@index([status])
 }
 
 model Submission {
-  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
-  githubLink      String?
-  demoLink        String?
-  remarks         String?
-
-  createdAt       DateTime    @default(now())
-
-  milestoneId     String      @db.Uuid
-  milestone       Milestone   @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
-
-  submittedById   String      @db.Uuid
-  submittedBy     User        @relation(fields: [submittedById], references: [id], onDelete: Cascade)
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  githubLink    String?
+  demoLink      String?
+  remarks       String?
+  createdAt     DateTime  @default(now())
+  milestoneId   String    @db.Uuid
+  submittedById String    @db.Uuid
+  milestone     Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  submittedBy   User      @relation(fields: [submittedById], references: [id], onDelete: Cascade)
 
   @@index([milestoneId])
   @@index([submittedById])
 }
 
 model Notification {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
-  title         String
-  message       String
-
-  isRead        Boolean   @default(false)
-
-  createdAt     DateTime  @default(now())
-
-  userId        String    @db.Uuid
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isRead])
+}
+
+enum UserRole {
+  FREELANCER
+  CLIENT
+  ADMIN
 }
