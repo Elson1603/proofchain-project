@@ -30,8 +30,8 @@ model User {
   freelancerProjects Project[]   @relation("FreelancerProjects")
   sessions        Session[]
   submissions     Submission[]
-  paymentsAsPayer Payment[] @relation("PaymentPayer")
-  paymentsAsPayee Payment[] @relation("PaymentPayee")
+  paymentsAsPayer Payment[]     @relation("PaymentPayer")
+  paymentsAsPayee Payment[]     @relation("PaymentPayee")
 
   @@index([walletAddress])
   @@index([role])
