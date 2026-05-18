@@ -30,6 +30,8 @@ model User {
   freelancerProjects Project[]   @relation("FreelancerProjects")
   sessions        Session[]
   submissions     Submission[]
+  paymentsAsPayer Payment[] @relation("PaymentPayer")
+  paymentsAsPayee Payment[] @relation("PaymentPayee")
 
   @@index([walletAddress])
   @@index([role])
@@ -76,6 +78,7 @@ model Project {
   invitedFreelancerId String? @db.Uuid
   updatedAt   DateTime    @updatedAt
   milestones  Milestone[]
+  payments    Payment[]
   owner       User        @relation("OwnerProjects", fields: [ownerId], references: [id], onDelete: Cascade)
   freelancer  User?       @relation("FreelancerProjects", fields: [freelancerId], references: [id], onDelete: SetNull)
   invitedFreelancer User? @relation("InvitedProjects", fields: [invitedFreelancerId], references: [id], onDelete: SetNull)
@@ -96,6 +99,7 @@ model Milestone {
   createdAt   DateTime     @default(now())
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   submissions Submission[]
+  payments    Payment[]
 
   @@index([projectId])
   @@index([status])
@@ -111,6 +115,7 @@ model Submission {
   submittedById String    @db.Uuid
   milestone     Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
   submittedBy   User      @relation(fields: [submittedById], references: [id], onDelete: Cascade)
+  payments      Payment[]
 
   @@index([milestoneId])
   @@index([submittedById])
