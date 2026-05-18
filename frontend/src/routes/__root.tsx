@@ -7,6 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { UGFProvider } from "@tychilabs/react-ugf";
 
 import appCss from "../styles.css?url";
 
@@ -110,10 +111,13 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const ugfMode = (import.meta.env.VITE_UGF_MODE as "mainnet" | "testnet" | undefined) ?? "testnet";
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <UGFProvider mode={ugfMode}>
+        <Outlet />
+      </UGFProvider>
     </QueryClientProvider>
   );
 }

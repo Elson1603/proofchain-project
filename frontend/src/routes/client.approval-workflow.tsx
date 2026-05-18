@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle } from "lucide-react";
+import { Interface, type TransactionRequest } from "ethers";
+import { useUGFModal } from "@tychilabs/react-ugf";
 import { DashboardShell } from "@/components/proofchain/dashboard-shell";
 import { submissions } from "@/components/proofchain/mock-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ESCROW_CONTRACT_ADDRESS, connectWallet, getEscrowContract } from "@/lib/escrow";
+import { escrowAbi } from "@/lib/escrow-abi";
+import { ESCROW_CONTRACT_ADDRESS, connectWallet, getEscrowContract, requireEscrowAddress } from "@/lib/escrow";
 
 export const Route = createFileRoute("/client/approval-workflow")({
   head: () => ({
@@ -28,11 +31,29 @@ const clientNav = [
 ];
 
 function ApprovalWorkflowPage() {
+  const { openUGF, result } = useUGFModal();
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [projectId, setProjectId] = useState("0");
+  const [projectChainId, setProjectChainId] = useState("0");
   const [milestoneIndex, setMilestoneIndex] = useState("0");
+  const [projectId, setProjectId] = useState("");
+  const [milestoneId, setMilestoneId] = useState("");
+  const [submissionId, setSubmissionId] = useState("");
+  const [payerId, setPayerId] = useState("");
+  const [payeeId, setPayeeId] = useState("");
+  const [amount, setAmount] = useState("0");
+  const [paymentType, setPaymentType] = useState("milestone_release");
   const [status, setStatus] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"approve_milestone" | "release_payment" | null>(null);
+  const [pendingPayload, setPendingPayload] = useState<{
+    projectChainId: number;
+    milestoneIndex: number;
+    escrowAddress: string;
+    payerWallet: string;
+    amount: number;
+  } | null>(null);
+  const lastRecordedTxHash = useRef<string | null>(null);
 
   const contractLabel = ESCROW_CONTRACT_ADDRESS
     ? `${ESCROW_CONTRACT_ADDRESS.slice(0, 6)}...${ESCROW_CONTRACT_ADDRESS.slice(-4)}`
@@ -45,6 +66,21 @@ function ApprovalWorkflowPage() {
     }
     return parsed;
   };
+
+  const parseAmount = (value: string) => {
+    const parsed = Number.parseFloat(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      throw new Error("Invalid amount. Use a value greater than 0.");
+    }
+    return parsed;
+  };
+
+  const destChainId = useMemo(() => {
+    return import.meta.env.VITE_UGF_DEST_CHAIN_ID ?? import.meta.env.VITE_CHAIN_ID ?? "84532";
+  }, []);
+
+  const apiBase = useMemo(() => import.meta.env.VITE_API_BASE_URL ?? "", []);
+  const ugfPaymentCoin = "TYI_MOCK_USD";
 
   const runTx = async (label: string, action: () => Promise<{ hash: string; wait: () => Promise<unknown> }>) => {
     setIsBusy(true);
@@ -68,7 +104,7 @@ function ApprovalWorkflowPage() {
     setStatus(null);
 
     try {
-      const { address } = await connectWallet();
+      const { address } = await connectWallet(Number(destChainId));
       setWalletAddress(address);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Wallet connection failed";
@@ -78,34 +114,139 @@ function ApprovalWorkflowPage() {
     }
   };
 
-  const handleApproveMilestone = async () => {
-    const projectValue = parseUint(projectId, "project ID");
-    const milestoneValue = parseUint(milestoneIndex, "milestone index");
+  const executeUgfPayment = async (action: "approve_milestone" | "release_payment") => {
+    setIsBusy(true);
+    setStatus("Preparing UGF modal...");
+    setTxHash(null);
 
-    await runTx("Approve milestone", async () => {
-      const contract = await getEscrowContract();
-      return contract.approveMilestone(projectValue, milestoneValue);
-    });
+    try {
+      const escrowAddress = requireEscrowAddress();
+      const projectValue = parseUint(projectChainId, "project chain ID");
+      const milestoneValue = parseUint(milestoneIndex, "milestone index");
+      const amountValue = parseAmount(amount);
+
+      if (!projectId || !payerId || !payeeId) {
+        throw new Error("Backend project, payer, and payee IDs are required.");
+      }
+
+      const { signer, address } = await connectWallet(null);
+      setWalletAddress(address);
+
+      const escrowInterface = new Interface(escrowAbi);
+      const functionName = action === "approve_milestone" ? "approveMilestone" : "releasePayment";
+      const data = escrowInterface.encodeFunctionData(functionName, [projectValue, milestoneValue]);
+
+      const tx: TransactionRequest = {
+        to: escrowAddress,
+        data,
+        value: 0n,
+      };
+
+      setPendingAction(action);
+      setPendingPayload({
+        projectChainId: projectValue,
+        milestoneIndex: milestoneValue,
+        escrowAddress,
+        payerWallet: address,
+        amount: amountValue,
+      });
+
+      setStatus("UGF modal opened");
+      openUGF({
+        signer,
+        tx,
+        destChainId: String(destChainId),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "UGF execution failed";
+      setStatus(message);
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleApproveMilestone = async () => {
+    await executeUgfPayment("approve_milestone");
   };
 
   const handleReleasePayment = async () => {
-    const projectValue = parseUint(projectId, "project ID");
-    const milestoneValue = parseUint(milestoneIndex, "milestone index");
-
-    await runTx("Release payment", async () => {
-      const contract = await getEscrowContract();
-      return contract.releasePayment(projectValue, milestoneValue);
-    });
+    await executeUgfPayment("release_payment");
   };
 
   const handleRaiseDispute = async () => {
-    const projectValue = parseUint(projectId, "project ID");
+    const projectValue = parseUint(projectChainId, "project chain ID");
 
     await runTx("Raise dispute", async () => {
       const contract = await getEscrowContract();
       return contract.raiseDispute(projectValue);
     });
   };
+
+  useEffect(() => {
+    if (!result?.txHash || !pendingAction || !pendingPayload) {
+      return;
+    }
+
+    if (lastRecordedTxHash.current === result.txHash) {
+      return;
+    }
+
+    lastRecordedTxHash.current = result.txHash;
+    setTxHash(result.txHash);
+    setStatus(`UGF submitted: ${result.txHash}`);
+
+    const recordPayment = async () => {
+      const response = await fetch(`${apiBase}/api/payments/execute`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          projectId,
+          milestoneId: milestoneId || undefined,
+          submissionId: submissionId || undefined,
+          payerId,
+          payeeId,
+          amount: pendingPayload.amount,
+          type: paymentType,
+          action: pendingAction,
+          projectChainId: pendingPayload.projectChainId,
+          milestoneIndex: pendingPayload.milestoneIndex,
+          escrowAddress: pendingPayload.escrowAddress,
+          payerWallet: pendingPayload.payerWallet,
+          chainId: Number(destChainId),
+          currency: ugfPaymentCoin,
+          txHash: result.txHash,
+          status: "submitted",
+        }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Backend record failed");
+      }
+
+      setPendingAction(null);
+      setPendingPayload(null);
+    };
+
+    recordPayment().catch((error) => {
+      const message = error instanceof Error ? error.message : "Backend record failed";
+      setStatus(message);
+    });
+  }, [
+    apiBase,
+    destChainId,
+    milestoneId,
+    payeeId,
+    payerId,
+    paymentType,
+    pendingAction,
+    pendingPayload,
+    projectId,
+    result?.txHash,
+    submissionId,
+  ]);
 
   return (
     <DashboardShell
@@ -128,13 +269,13 @@ function ApprovalWorkflowPage() {
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground" htmlFor="projectId">
-                Project ID
+              <label className="text-xs text-muted-foreground" htmlFor="projectChainId">
+                Project chain ID
               </label>
               <Input
-                id="projectId"
-                value={projectId}
-                onChange={(event) => setProjectId(event.target.value)}
+                id="projectChainId"
+                value={projectChainId}
+                onChange={(event) => setProjectChainId(event.target.value)}
                 className="bg-secondary/30"
                 inputMode="numeric"
                 placeholder="0"
@@ -152,6 +293,100 @@ function ApprovalWorkflowPage() {
                 className="bg-secondary/30"
                 inputMode="numeric"
                 placeholder="0"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground" htmlFor="backendProjectId">
+                Backend project ID
+              </label>
+              <Input
+                id="backendProjectId"
+                value={projectId}
+                onChange={(event) => setProjectId(event.target.value)}
+                className="bg-secondary/30"
+                placeholder="uuid"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground" htmlFor="backendMilestoneId">
+                Backend milestone ID
+              </label>
+              <Input
+                id="backendMilestoneId"
+                value={milestoneId}
+                onChange={(event) => setMilestoneId(event.target.value)}
+                className="bg-secondary/30"
+                placeholder="uuid"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground" htmlFor="backendSubmissionId">
+                Backend submission ID
+              </label>
+              <Input
+                id="backendSubmissionId"
+                value={submissionId}
+                onChange={(event) => setSubmissionId(event.target.value)}
+                className="bg-secondary/30"
+                placeholder="uuid"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground" htmlFor="payerId">
+                Payer ID
+              </label>
+              <Input
+                id="payerId"
+                value={payerId}
+                onChange={(event) => setPayerId(event.target.value)}
+                className="bg-secondary/30"
+                placeholder="uuid"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground" htmlFor="payeeId">
+                Payee ID
+              </label>
+              <Input
+                id="payeeId"
+                value={payeeId}
+                onChange={(event) => setPayeeId(event.target.value)}
+                className="bg-secondary/30"
+                placeholder="uuid"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground" htmlFor="amount">
+                Amount (mUSD)
+              </label>
+              <Input
+                id="amount"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                className="bg-secondary/30"
+                inputMode="decimal"
+                placeholder="1200"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground" htmlFor="paymentType">
+                Payment type
+              </label>
+              <Input
+                id="paymentType"
+                value={paymentType}
+                onChange={(event) => setPaymentType(event.target.value)}
+                className="bg-secondary/30"
+                placeholder="milestone_release"
               />
             </div>
           </div>
@@ -200,8 +435,9 @@ function ApprovalWorkflowPage() {
           <h2 className="text-base font-semibold text-foreground">Gasless payment modal</h2>
           <div className="mt-4 rounded-lg border border-border/70 bg-secondary/35 p-4 text-sm text-muted-foreground">
             <p className="text-primary">No ETH required</p>
-            <p className="mt-1">Gas handled via UGF relayer</p>
-            <p className="mt-1">Mock USD deduction: 1,100 mUSD</p>
+            <p className="mt-1">Gas handled via UGF modal</p>
+            <p className="mt-1">Mock USD deduction shown inside UGF</p>
+            {txHash ? <p className="mt-1">Tx hash: {txHash}</p> : null}
           </div>
 
           <div className="mt-4 space-y-2">

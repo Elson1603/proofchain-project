@@ -19,7 +19,7 @@ const EXPECTED_CHAIN_ID = import.meta.env.VITE_CHAIN_ID
   ? Number(import.meta.env.VITE_CHAIN_ID)
   : null;
 
-const requireEscrowAddress = (): `0x${string}` => {
+export const requireEscrowAddress = (): `0x${string}` => {
   if (!ESCROW_CONTRACT_ADDRESS) {
     throw new Error("Missing VITE_ESCROW_CONTRACT_ADDRESS in frontend/.env");
   }
@@ -35,7 +35,7 @@ const requireEthereumProvider = (): EthereumProvider => {
   return window.ethereum;
 };
 
-export const connectWallet = async () => {
+export const connectWallet = async (expectedChainIdOverride?: number | null) => {
   const provider = new BrowserProvider(requireEthereumProvider());
   await provider.send("eth_requestAccounts", []);
 
@@ -44,8 +44,10 @@ export const connectWallet = async () => {
   const network = await provider.getNetwork();
   const chainId = Number(network.chainId);
 
-  if (EXPECTED_CHAIN_ID && chainId !== EXPECTED_CHAIN_ID) {
-    throw new Error(`Wrong network. Switch to chain ID ${EXPECTED_CHAIN_ID}.`);
+  const expectedChainId = expectedChainIdOverride === null ? null : expectedChainIdOverride ?? EXPECTED_CHAIN_ID;
+
+  if (expectedChainId && chainId !== expectedChainId) {
+    throw new Error(`Wrong network. Switch to chain ID ${expectedChainId}.`);
   }
 
   return { provider, signer, address, chainId };

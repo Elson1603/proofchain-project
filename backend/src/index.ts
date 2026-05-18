@@ -7,6 +7,8 @@ import authRoutes from './modules/auth/routes'
 import milestonesRoutes from './modules/milestones/routes'
 import projectsRoutes from './modules/projects/routes'
 import submissionsRoutes from './modules/submissions/routes'
+import paymentsRoutes from './modules/payments/routes'
+import { paymentsService } from './modules/payments/service'
 
 dotenv.config()
 
@@ -35,6 +37,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/projects', projectsRoutes)
 app.use('/api/milestones', milestonesRoutes)
 app.use('/api/submissions', submissionsRoutes)
+app.use('/api/payments', paymentsRoutes)
 
 // Health check route
 app.get('/', (req: Request, res: Response) => {
@@ -63,5 +66,6 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
 const PORT = process.env.PORT || 5000
 
 app.listen(PORT, () => {
+  paymentsService.startPolling()
   console.log(`✅ Server running on port ${PORT}`)
 })
