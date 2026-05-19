@@ -1,3 +1,4 @@
+import type { PaymentStatus as PrismaPaymentStatus, Prisma } from '@prisma/client'
 import { JsonRpcProvider, isAddress } from 'ethers'
 import prisma from '../../config/db'
 import { normalizeWalletAddress } from '../auth/utils'
@@ -7,6 +8,7 @@ import {
   PAYMENT_TYPES,
   TRANSACTION_STATUSES,
   PaymentAction,
+  PaymentStatus,
   TransactionStatus,
 } from './types'
 
@@ -54,9 +56,9 @@ type RetryInput = {
 }
 
 type UpdateInput = {
-  status?: string
+  status?: PrismaPaymentStatus
   failureReason?: string
-  metadata?: Record<string, unknown>
+  metadata?: Prisma.InputJsonValue
 }
 
 type PaymentMetadata = {
@@ -416,7 +418,7 @@ export const paymentsService = {
     await prisma.transaction.update({
       where: { id: latestTransaction.id },
       data: {
-        status: latestTransaction.status === 'confirmed' ? latestTransaction.status : 'replaced',
+        status: 'replaced',
       },
     })
 
@@ -549,7 +551,11 @@ export const paymentsService = {
   async update(id: string, data: UpdateInput) {
     return prisma.payment.update({
       where: { id },
-      data,
+      data: {
+        status: data.status,
+        failureReason: data.failureReason,
+        metadata: data.metadata as Prisma.InputJsonValue | undefined,
+      },
     })
   },
 

@@ -111,6 +111,12 @@ model Submission {
   demoLink      String?
   remarks       String?
   createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  ipfsCid       String?
+  fileName      String?
+  fileSize      Int?
+  mimeType      String?
+  version       Int       @default(1)
   milestoneId   String    @db.Uuid
   submittedById String    @db.Uuid
   milestone     Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
@@ -119,6 +125,8 @@ model Submission {
 
   @@index([milestoneId])
   @@index([submittedById])
+  @@index([ipfsCid])
+  @@index([milestoneId, version])
 }
 
 model Notification {

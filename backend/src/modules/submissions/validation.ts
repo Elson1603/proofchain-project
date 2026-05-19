@@ -11,6 +11,14 @@ const createSubmissionSchema = z.object({
   }),
 })
 
+const uploadSubmissionSchema = z.object({
+  body: z.object({
+    milestoneId: z.string().uuid('Invalid milestone id'),
+    submittedById: z.string().uuid('Invalid user id'),
+    remarks: z.string().trim().optional(),
+  }),
+})
+
 const updateSubmissionSchema = z.object({
   params: z.object({
     id: z.string().uuid('Invalid submission id'),
@@ -27,4 +35,5 @@ const updateSubmissionSchema = z.object({
 })
 
 export const validateCreateSubmission = validate(createSubmissionSchema)
+export const validateUploadSubmission = validate(uploadSubmissionSchema)
 export const validateUpdateSubmission = validate(updateSubmissionSchema)

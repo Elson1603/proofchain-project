@@ -8,8 +8,10 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { UGFProvider } from "@tychilabs/react-ugf";
+import { useEffect, useState } from "react";
 
 import appCss from "../styles.css?url";
+import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
   return (
@@ -112,11 +114,17 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const ugfMode = (import.meta.env.VITE_UGF_MODE as "mainnet" | "testnet" | undefined) ?? "testnet";
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <UGFProvider mode={ugfMode}>
         <Outlet />
+        {mounted ? <Toaster /> : null}
       </UGFProvider>
     </QueryClientProvider>
   );

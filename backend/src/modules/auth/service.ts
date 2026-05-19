@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client'
 import prisma from '../../config/db'
 import {
   DeviceContext,
@@ -146,7 +147,7 @@ export const authService = {
       throw new Error('Signature verification failed')
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const nonceInvalidation = await tx.user.updateMany({
         where: {
           id: user.id,
@@ -365,7 +366,7 @@ export const authService = {
       throw new Error('Wallet is already linked to another user')
     }
 
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const nonceInvalidation = await tx.user.updateMany({
         where: {
           id: userId,

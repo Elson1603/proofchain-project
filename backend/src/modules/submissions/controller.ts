@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express'
+import { pinataService } from './pinata.service'
 import { submissionsService } from './service'
 
 export const submissionsController = {
@@ -26,6 +27,39 @@ export const submissionsController = {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       res.status(201).json(await submissionsService.create(req.body))
+    } catch (error) {
+      next(error)
+    }
+  },
+
+  async upload(req: Request, res: Response, next: NextFunction) {
+    try {
+      const file = (req as Request & { file?: Express.Multer.File }).file
+
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          message: 'File is required',
+        })
+      }
+
+      const { milestoneId, submittedById, remarks } = req.body
+
+      const uploadResult = await pinataService.uploadFile(file)
+      const submission = await submissionsService.createFileSubmission({
+        milestoneId,
+        submittedById,
+        remarks,
+        ipfsCid: uploadResult.cid,
+        fileName: file.originalname,
+        fileSize: file.size,
+        mimeType: file.mimetype,
+      })
+
+      res.status(201).json({
+        ...submission,
+        gatewayUrl: pinataService.buildGatewayUrl(uploadResult.cid),
+      })
     } catch (error) {
       next(error)
     }
