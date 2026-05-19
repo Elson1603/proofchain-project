@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ProjectDetailsRouteImport } from './routes/project-details'
+import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as DevelopersRouteImport } from './routes/developers'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -22,6 +23,7 @@ import { Route as FreelancerEarningsRouteImport } from './routes/freelancer.earn
 import { Route as FreelancerDashboardRouteImport } from './routes/freelancer.dashboard'
 import { Route as ClientDashboardRouteImport } from './routes/client.dashboard'
 import { Route as ClientApprovalWorkflowRouteImport } from './routes/client.approval-workflow'
+import { Route as ProjectsIdChatRouteImport } from './routes/projects.$id.chat'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -31,6 +33,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const ProjectDetailsRoute = ProjectDetailsRouteImport.update({
   id: '/project-details',
   path: '/project-details',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DevelopersRoute = DevelopersRouteImport.update({
@@ -89,11 +96,17 @@ const ClientApprovalWorkflowRoute = ClientApprovalWorkflowRouteImport.update({
   path: '/client/approval-workflow',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectsIdChatRoute = ProjectsIdChatRouteImport.update({
+  id: '/projects/$id/chat',
+  path: '/projects/$id/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/developers': typeof DevelopersRoute
+  '/messages': typeof MessagesRoute
   '/project-details': typeof ProjectDetailsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/client/approval-workflow': typeof ClientApprovalWorkflowRoute
@@ -104,11 +117,13 @@ export interface FileRoutesByFullPath {
   '/freelancer/profile': typeof FreelancerProfileRoute
   '/freelancer/submit-work': typeof FreelancerSubmitWorkRoute
   '/profile/$userId': typeof ProfileUserIdRoute
+  '/projects/$id/chat': typeof ProjectsIdChatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/developers': typeof DevelopersRoute
+  '/messages': typeof MessagesRoute
   '/project-details': typeof ProjectDetailsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/client/approval-workflow': typeof ClientApprovalWorkflowRoute
@@ -119,12 +134,14 @@ export interface FileRoutesByTo {
   '/freelancer/profile': typeof FreelancerProfileRoute
   '/freelancer/submit-work': typeof FreelancerSubmitWorkRoute
   '/profile/$userId': typeof ProfileUserIdRoute
+  '/projects/$id/chat': typeof ProjectsIdChatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/developers': typeof DevelopersRoute
+  '/messages': typeof MessagesRoute
   '/project-details': typeof ProjectDetailsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/client/approval-workflow': typeof ClientApprovalWorkflowRoute
@@ -135,6 +152,7 @@ export interface FileRoutesById {
   '/freelancer/profile': typeof FreelancerProfileRoute
   '/freelancer/submit-work': typeof FreelancerSubmitWorkRoute
   '/profile/$userId': typeof ProfileUserIdRoute
+  '/projects/$id/chat': typeof ProjectsIdChatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -142,6 +160,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/developers'
+    | '/messages'
     | '/project-details'
     | '/sitemap.xml'
     | '/client/approval-workflow'
@@ -152,11 +171,13 @@ export interface FileRouteTypes {
     | '/freelancer/profile'
     | '/freelancer/submit-work'
     | '/profile/$userId'
+    | '/projects/$id/chat'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/developers'
+    | '/messages'
     | '/project-details'
     | '/sitemap.xml'
     | '/client/approval-workflow'
@@ -167,11 +188,13 @@ export interface FileRouteTypes {
     | '/freelancer/profile'
     | '/freelancer/submit-work'
     | '/profile/$userId'
+    | '/projects/$id/chat'
   id:
     | '__root__'
     | '/'
     | '/auth'
     | '/developers'
+    | '/messages'
     | '/project-details'
     | '/sitemap.xml'
     | '/client/approval-workflow'
@@ -182,12 +205,14 @@ export interface FileRouteTypes {
     | '/freelancer/profile'
     | '/freelancer/submit-work'
     | '/profile/$userId'
+    | '/projects/$id/chat'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   DevelopersRoute: typeof DevelopersRoute
+  MessagesRoute: typeof MessagesRoute
   ProjectDetailsRoute: typeof ProjectDetailsRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ClientApprovalWorkflowRoute: typeof ClientApprovalWorkflowRoute
@@ -198,6 +223,7 @@ export interface RootRouteChildren {
   FreelancerProfileRoute: typeof FreelancerProfileRoute
   FreelancerSubmitWorkRoute: typeof FreelancerSubmitWorkRoute
   ProfileUserIdRoute: typeof ProfileUserIdRoute
+  ProjectsIdChatRoute: typeof ProjectsIdChatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -214,6 +240,13 @@ declare module '@tanstack/react-router' {
       path: '/project-details'
       fullPath: '/project-details'
       preLoaderRoute: typeof ProjectDetailsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/developers': {
@@ -293,6 +326,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientApprovalWorkflowRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projects/$id/chat': {
+      id: '/projects/$id/chat'
+      path: '/projects/$id/chat'
+      fullPath: '/projects/$id/chat'
+      preLoaderRoute: typeof ProjectsIdChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -300,6 +340,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   DevelopersRoute: DevelopersRoute,
+  MessagesRoute: MessagesRoute,
   ProjectDetailsRoute: ProjectDetailsRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ClientApprovalWorkflowRoute: ClientApprovalWorkflowRoute,
@@ -310,6 +351,7 @@ const rootRouteChildren: RootRouteChildren = {
   FreelancerProfileRoute: FreelancerProfileRoute,
   FreelancerSubmitWorkRoute: FreelancerSubmitWorkRoute,
   ProfileUserIdRoute: ProfileUserIdRoute,
+  ProjectsIdChatRoute: ProjectsIdChatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -27,6 +27,7 @@ const clientNav = [
   { label: "Dashboard", to: "/client/dashboard" },
   { label: "Approvals", to: "/client/approval-workflow" },
   { label: "Project Details", to: "/project-details" },
+  { label: "Messages", to: "/messages" },
   { label: "Settings", to: "/auth" },
 ];
 

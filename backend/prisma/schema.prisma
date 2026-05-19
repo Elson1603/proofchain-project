@@ -7,35 +7,38 @@ datasource db {
 }
 
 model User {
-  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fullName        String?
-  username        String?        @unique
-  email           String?        @unique
-  passwordHash    String?
-  bio             String?
-  avatarUrl       String?        @map("profileImage")
-  githubUrl       String?
-  linkedinUrl     String?
-  portfolioUrl    String?
-  skills          String[]       @default([])
-  walletAddress   String         @unique
-  isVerified      Boolean        @default(false)
-  createdAt       DateTime       @default(now())
-  nonce           String?
-  nonceExpiresAt  DateTime?
-  profileMetadata Json?
-  reputationScore Float          @default(0)
-  updatedAt       DateTime       @updatedAt
-  role            UserRole       @default(FREELANCER)
-  notifications   Notification[]
-  linkedWallets   UserWallet[]
-  projects        Project[]     @relation("OwnerProjects")
-  invitedProjects Project[]     @relation("InvitedProjects")
-  freelancerProjects Project[]   @relation("FreelancerProjects")
-  sessions        Session[]
-  submissions     Submission[]
-  paymentsAsPayer Payment[]     @relation("PaymentPayer")
-  paymentsAsPayee Payment[]     @relation("PaymentPayee")
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName           String?
+  username           String?           @unique
+  email              String?           @unique
+  passwordHash       String?
+  bio                String?
+  walletAddress      String            @unique
+  isVerified         Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  nonce              String?
+  nonceExpiresAt     DateTime?
+  avatarUrl          String?           @map("profileImage")
+  profileMetadata    Json?
+  reputationScore    Float             @default(0)
+  updatedAt          DateTime          @updatedAt
+  role               UserRole          @default(FREELANCER)
+  githubUrl          String?
+  linkedinUrl        String?
+  portfolioUrl       String?
+  skills             String[]          @default([])
+  messages           Message[]
+  messageReactions   MessageReaction[]
+  messageReads       MessageRead[]
+  notifications      Notification[]
+  paymentsAsPayee    Payment[]         @relation("PaymentPayee")
+  paymentsAsPayer    Payment[]         @relation("PaymentPayer")
+  freelancerProjects Project[]         @relation("FreelancerProjects")
+  invitedProjects    Project[]         @relation("InvitedProjects")
+  projects           Project[]         @relation("OwnerProjects")
+  sessions           Session[]
+  submissions        Submission[]
+  linkedWallets      UserWallet[]
 
   @@index([walletAddress])
   @@index([role])
@@ -70,22 +73,23 @@ model UserWallet {
 }
 
 model Project {
-  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title       String
-  description String?
-  status      String      @default("open")
-  budget      Float?
-  deadline    DateTime?
-  createdAt   DateTime    @default(now())
-  ownerId     String      @db.Uuid
-  freelancerId String?    @db.Uuid
-  invitedFreelancerId String? @db.Uuid
-  updatedAt   DateTime    @updatedAt
-  milestones  Milestone[]
-  payments    Payment[]
-  owner       User        @relation("OwnerProjects", fields: [ownerId], references: [id], onDelete: Cascade)
-  freelancer  User?       @relation("FreelancerProjects", fields: [freelancerId], references: [id], onDelete: SetNull)
-  invitedFreelancer User? @relation("InvitedProjects", fields: [invitedFreelancerId], references: [id], onDelete: SetNull)
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title               String
+  description         String?
+  status              String        @default("open")
+  budget              Float?
+  createdAt           DateTime      @default(now())
+  ownerId             String        @db.Uuid
+  updatedAt           DateTime      @updatedAt
+  deadline            DateTime?
+  freelancerId        String?       @db.Uuid
+  invitedFreelancerId String?       @db.Uuid
+  conversation        Conversation?
+  milestones          Milestone[]
+  payments            Payment[]
+  freelancer          User?         @relation("FreelancerProjects", fields: [freelancerId], references: [id])
+  invitedFreelancer   User?         @relation("InvitedProjects", fields: [invitedFreelancerId], references: [id])
+  owner               User          @relation("OwnerProjects", fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@index([ownerId])
   @@index([freelancerId])
@@ -102,8 +106,8 @@ model Milestone {
   projectId   String       @db.Uuid
   createdAt   DateTime     @default(now())
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  submissions Submission[]
   payments    Payment[]
+  submissions Submission[]
 
   @@index([projectId])
   @@index([status])
@@ -115,17 +119,17 @@ model Submission {
   demoLink      String?
   remarks       String?
   createdAt     DateTime  @default(now())
+  milestoneId   String    @db.Uuid
+  submittedById String    @db.Uuid
   updatedAt     DateTime  @updatedAt
   ipfsCid       String?
   fileName      String?
   fileSize      Int?
   mimeType      String?
   version       Int       @default(1)
-  milestoneId   String    @db.Uuid
-  submittedById String    @db.Uuid
+  payments      Payment[]
   milestone     Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
   submittedBy   User      @relation(fields: [submittedById], references: [id], onDelete: Cascade)
-  payments      Payment[]
 
   @@index([milestoneId])
   @@index([submittedById])
@@ -146,44 +150,6 @@ model Notification {
   @@index([isRead])
 }
 
-enum UserRole {
-  FREELANCER
-  CLIENT
-  ADMIN
-}
-
-enum PaymentStatus {
-  pending
-  escrowed
-  released
-  refunded
-  failed
-  cancelled
-}
-
-enum PaymentType {
-  escrow_deposit
-  milestone_release
-  refund
-  platform_fee
-}
-
-enum TransactionStatus {
-  queued
-  submitted
-  confirmed
-  failed
-  replaced
-}
-
-enum TransactionType {
-  escrow_deposit
-  payment_release
-  refund
-  certificate_mint
-  certificate_revoke
-}
-
 model Payment {
   id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   projectId     String        @db.Uuid
@@ -201,13 +167,12 @@ model Payment {
   metadata      Json          @default("{}")
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
-
-  project    Project    @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  milestone  Milestone? @relation(fields: [milestoneId], references: [id], onDelete: Restrict)
-  submission Submission? @relation(fields: [submissionId], references: [id], onDelete: Restrict)
-  payer      User       @relation("PaymentPayer", fields: [payerId], references: [id], onDelete: Restrict)
-  payee      User       @relation("PaymentPayee", fields: [payeeId], references: [id], onDelete: Restrict)
-  transactions Transaction[]
+  milestone     Milestone?    @relation(fields: [milestoneId], references: [id], onDelete: Restrict)
+  payee         User          @relation("PaymentPayee", fields: [payeeId], references: [id])
+  payer         User          @relation("PaymentPayer", fields: [payerId], references: [id])
+  project       Project       @relation(fields: [projectId], references: [id])
+  submission    Submission?   @relation(fields: [submissionId], references: [id], onDelete: Restrict)
+  transactions  Transaction[]
 
   @@index([projectId, status, createdAt])
   @@index([payeeId, status, createdAt])
@@ -240,9 +205,137 @@ model Transaction {
   confirmedAt      DateTime?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
-
-  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  payment          Payment?          @relation(fields: [paymentId], references: [id])
 
   @@index([paymentId, createdAt])
   @@index([status, createdAt])
+}
+
+model Conversation {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId String    @unique @db.Uuid
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([projectId])
+  @@index([updatedAt])
+}
+
+model Message {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId      String            @db.Uuid
+  senderId            String            @db.Uuid
+  content             String
+  messageType         MessageType       @default(TEXT)
+  attachmentUrl       String?
+  attachmentType      String?
+  isEdited            Boolean           @default(false)
+  isDeleted           Boolean           @default(false)
+  deliveredAt         DateTime          @default(now())
+  messageHash         String?
+  blockchainTxHash    String?
+  blockchainProofedAt DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  attachments         Attachment[]
+  conversation        Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender              User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  reactions           MessageReaction[]
+  reads               MessageRead[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
+  @@index([messageType])
+  @@index([messageHash])
+}
+
+model MessageReaction {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId String   @db.Uuid
+  userId    String   @db.Uuid
+  emoji     String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@index([userId])
+}
+
+model MessageRead {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId String   @db.Uuid
+  userId    String   @db.Uuid
+  readAt    DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId, readAt])
+}
+
+model Attachment {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId   String   @db.Uuid
+  fileName    String
+  fileUrl     String
+  previewUrl  String?
+  downloadUrl String?
+  fileType    String
+  fileSize    Int
+  ipfsCid     String?
+  createdAt   DateTime @default(now())
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([ipfsCid])
+  @@index([fileType])
+}
+
+enum UserRole {
+  FREELANCER
+  CLIENT
+  ADMIN
+}
+
+enum MessageType {
+  TEXT
+  FILE
+  SYSTEM
+}
+
+enum PaymentStatus {
+  pending
+  escrowed
+  released
+  refunded
+  failed
+  cancelled
+}
+
+enum PaymentType {
+  escrow_deposit
+  milestone_release
+  refund
+  platform_fee
+}
+
+enum TransactionStatus {
+  queued
+  submitted
+  confirmed
+  failed
+  replaced
+}
+
+enum TransactionType {
+  escrow_deposit
+  payment_release
+  refund
+  certificate_mint
+  certificate_revoke
 }

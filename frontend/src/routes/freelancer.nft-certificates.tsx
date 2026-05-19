@@ -27,6 +27,7 @@ const freelancerNav = [
   { label: "Dashboard", to: "/freelancer/dashboard" },
   { label: "Profile", to: "/freelancer/profile" },
   { label: "Projects", to: "/project-details" },
+  { label: "Messages", to: "/messages" },
   { label: "Submit Work", to: "/freelancer/submit-work" },
   { label: "NFT Certificates", to: "/freelancer/nft-certificates" },
   { label: "Earnings", to: "/freelancer/earnings" },

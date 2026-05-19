@@ -205,13 +205,22 @@ export const projectsService = {
 
     assertTransition(project.status as ProjectStatus, 'in_progress')
 
-    return prisma.project.update({
-      where: { id },
-      data: {
-        freelancerId,
-        status: 'in_progress',
-      },
-    })
+    const [updated] = await prisma.$transaction([
+      prisma.project.update({
+        where: { id },
+        data: {
+          freelancerId,
+          status: 'in_progress',
+        },
+      }),
+      prisma.conversation.upsert({
+        where: { projectId: id },
+        update: {},
+        create: { projectId: id },
+      }),
+    ])
+
+    return updated
   },
 
   async submit(id: string) {
