@@ -13,12 +13,16 @@ model User {
   email           String?        @unique
   passwordHash    String?
   bio             String?
+  avatarUrl       String?        @map("profileImage")
+  githubUrl       String?
+  linkedinUrl     String?
+  portfolioUrl    String?
+  skills          String[]       @default([])
   walletAddress   String         @unique
   isVerified      Boolean        @default(false)
   createdAt       DateTime       @default(now())
   nonce           String?
   nonceExpiresAt  DateTime?
-  profileImage    String?
   profileMetadata Json?
   reputationScore Float          @default(0)
   updatedAt       DateTime       @updatedAt

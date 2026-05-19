@@ -25,6 +25,7 @@ export const Route = createFileRoute("/freelancer/nft-certificates")({
 
 const freelancerNav = [
   { label: "Dashboard", to: "/freelancer/dashboard" },
+  { label: "Profile", to: "/freelancer/profile" },
   { label: "Projects", to: "/project-details" },
   { label: "Submit Work", to: "/freelancer/submit-work" },
   { label: "NFT Certificates", to: "/freelancer/nft-certificates" },

@@ -14,7 +14,9 @@ import { Route as ProjectDetailsRouteImport } from './routes/project-details'
 import { Route as DevelopersRouteImport } from './routes/developers'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProfileUserIdRouteImport } from './routes/profile.$userId'
 import { Route as FreelancerSubmitWorkRouteImport } from './routes/freelancer.submit-work'
+import { Route as FreelancerProfileRouteImport } from './routes/freelancer.profile'
 import { Route as FreelancerNftCertificatesRouteImport } from './routes/freelancer.nft-certificates'
 import { Route as FreelancerEarningsRouteImport } from './routes/freelancer.earnings'
 import { Route as FreelancerDashboardRouteImport } from './routes/freelancer.dashboard'
@@ -46,9 +48,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileUserIdRoute = ProfileUserIdRouteImport.update({
+  id: '/profile/$userId',
+  path: '/profile/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FreelancerSubmitWorkRoute = FreelancerSubmitWorkRouteImport.update({
   id: '/freelancer/submit-work',
   path: '/freelancer/submit-work',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FreelancerProfileRoute = FreelancerProfileRouteImport.update({
+  id: '/freelancer/profile',
+  path: '/freelancer/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FreelancerNftCertificatesRoute =
@@ -89,7 +101,9 @@ export interface FileRoutesByFullPath {
   '/freelancer/dashboard': typeof FreelancerDashboardRoute
   '/freelancer/earnings': typeof FreelancerEarningsRoute
   '/freelancer/nft-certificates': typeof FreelancerNftCertificatesRoute
+  '/freelancer/profile': typeof FreelancerProfileRoute
   '/freelancer/submit-work': typeof FreelancerSubmitWorkRoute
+  '/profile/$userId': typeof ProfileUserIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -102,7 +116,9 @@ export interface FileRoutesByTo {
   '/freelancer/dashboard': typeof FreelancerDashboardRoute
   '/freelancer/earnings': typeof FreelancerEarningsRoute
   '/freelancer/nft-certificates': typeof FreelancerNftCertificatesRoute
+  '/freelancer/profile': typeof FreelancerProfileRoute
   '/freelancer/submit-work': typeof FreelancerSubmitWorkRoute
+  '/profile/$userId': typeof ProfileUserIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -116,7 +132,9 @@ export interface FileRoutesById {
   '/freelancer/dashboard': typeof FreelancerDashboardRoute
   '/freelancer/earnings': typeof FreelancerEarningsRoute
   '/freelancer/nft-certificates': typeof FreelancerNftCertificatesRoute
+  '/freelancer/profile': typeof FreelancerProfileRoute
   '/freelancer/submit-work': typeof FreelancerSubmitWorkRoute
+  '/profile/$userId': typeof ProfileUserIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -131,7 +149,9 @@ export interface FileRouteTypes {
     | '/freelancer/dashboard'
     | '/freelancer/earnings'
     | '/freelancer/nft-certificates'
+    | '/freelancer/profile'
     | '/freelancer/submit-work'
+    | '/profile/$userId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -144,7 +164,9 @@ export interface FileRouteTypes {
     | '/freelancer/dashboard'
     | '/freelancer/earnings'
     | '/freelancer/nft-certificates'
+    | '/freelancer/profile'
     | '/freelancer/submit-work'
+    | '/profile/$userId'
   id:
     | '__root__'
     | '/'
@@ -157,7 +179,9 @@ export interface FileRouteTypes {
     | '/freelancer/dashboard'
     | '/freelancer/earnings'
     | '/freelancer/nft-certificates'
+    | '/freelancer/profile'
     | '/freelancer/submit-work'
+    | '/profile/$userId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -171,7 +195,9 @@ export interface RootRouteChildren {
   FreelancerDashboardRoute: typeof FreelancerDashboardRoute
   FreelancerEarningsRoute: typeof FreelancerEarningsRoute
   FreelancerNftCertificatesRoute: typeof FreelancerNftCertificatesRoute
+  FreelancerProfileRoute: typeof FreelancerProfileRoute
   FreelancerSubmitWorkRoute: typeof FreelancerSubmitWorkRoute
+  ProfileUserIdRoute: typeof ProfileUserIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -211,11 +237,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile/$userId': {
+      id: '/profile/$userId'
+      path: '/profile/$userId'
+      fullPath: '/profile/$userId'
+      preLoaderRoute: typeof ProfileUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/freelancer/submit-work': {
       id: '/freelancer/submit-work'
       path: '/freelancer/submit-work'
       fullPath: '/freelancer/submit-work'
       preLoaderRoute: typeof FreelancerSubmitWorkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/freelancer/profile': {
+      id: '/freelancer/profile'
+      path: '/freelancer/profile'
+      fullPath: '/freelancer/profile'
+      preLoaderRoute: typeof FreelancerProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/freelancer/nft-certificates': {
@@ -267,7 +307,9 @@ const rootRouteChildren: RootRouteChildren = {
   FreelancerDashboardRoute: FreelancerDashboardRoute,
   FreelancerEarningsRoute: FreelancerEarningsRoute,
   FreelancerNftCertificatesRoute: FreelancerNftCertificatesRoute,
+  FreelancerProfileRoute: FreelancerProfileRoute,
   FreelancerSubmitWorkRoute: FreelancerSubmitWorkRoute,
+  ProfileUserIdRoute: ProfileUserIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

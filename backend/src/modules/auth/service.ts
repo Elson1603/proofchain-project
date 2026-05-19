@@ -23,8 +23,12 @@ function sanitizeUser(user: {
   username: string | null
   fullName: string | null
   email: string | null
-  profileImage: string | null
+  avatarUrl: string | null
   bio: string | null
+  githubUrl: string | null
+  linkedinUrl: string | null
+  portfolioUrl: string | null
+  skills: string[]
   profileMetadata: unknown
   reputationScore: number
   role: string
@@ -38,8 +42,12 @@ function sanitizeUser(user: {
     username: user.username,
     fullName: user.fullName,
     email: user.email,
-    profileImage: user.profileImage,
+    avatarUrl: user.avatarUrl,
     bio: user.bio,
+    githubUrl: user.githubUrl,
+    linkedinUrl: user.linkedinUrl,
+    portfolioUrl: user.portfolioUrl,
+    skills: user.skills,
     profileMetadata: user.profileMetadata,
     reputationScore: user.reputationScore,
     role: user.role,

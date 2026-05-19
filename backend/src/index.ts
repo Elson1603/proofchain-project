@@ -6,6 +6,7 @@ import morgan from 'morgan'
 import authRoutes from './modules/auth/routes'
 import milestonesRoutes from './modules/milestones/routes'
 import projectsRoutes from './modules/projects/routes'
+import profileRoutes from './modules/profile/routes'
 import submissionsRoutes from './modules/submissions/routes'
 import paymentsRoutes from './modules/payments/routes'
 import { paymentsService } from './modules/payments/service'
@@ -34,6 +35,7 @@ app.use(
 app.use(express.json({ limit: '1mb' }))
 
 app.use('/api/auth', authRoutes)
+app.use('/api/profile', profileRoutes)
 app.use('/api/projects', projectsRoutes)
 app.use('/api/milestones', milestonesRoutes)
 app.use('/api/submissions', submissionsRoutes)
