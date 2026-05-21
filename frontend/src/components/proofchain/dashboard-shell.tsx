@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Bell, Search, WalletCards } from "lucide-react";
+import { shortenWalletAddress, useWalletAddress } from "@/hooks/use-wallet-address";
 
 interface NavItem {
   label: string;
@@ -17,6 +18,8 @@ interface DashboardShellProps {
 
 export function DashboardShell({ title, subtitle, navItems, notificationCount, children }: DashboardShellProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const walletAddress = useWalletAddress();
+  const walletLabel = walletAddress ? shortenWalletAddress(walletAddress) : "Wallet Connected";
 
   return (
     <div className="min-h-screen bg-background">
@@ -70,9 +73,13 @@ export function DashboardShell({ title, subtitle, navItems, notificationCount, c
                   </span>
                 )}
               </button>
-              <span className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-secondary px-3 py-1 text-xs text-muted-foreground">
+              <span
+                className="inline-flex max-w-40 items-center gap-2 rounded-full border border-border/80 bg-secondary px-3 py-1 text-xs text-muted-foreground"
+                aria-label={walletAddress ? `Connected wallet ${walletAddress}` : "Wallet connected"}
+                title={walletAddress ?? "Wallet connected"}
+              >
                 <WalletCards className="h-3.5 w-3.5 text-primary" />
-                Wallet Connected
+                <span className="truncate">{walletLabel}</span>
               </span>
             </div>
           </div>

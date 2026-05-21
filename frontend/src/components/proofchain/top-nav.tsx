@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Bell, Command, Dot, Wallet2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { shortenWalletAddress, useWalletAddress } from "@/hooks/use-wallet-address";
 
 const links = [
   { to: "/", label: "Features" },
@@ -10,6 +11,9 @@ const links = [
 ];
 
 export function ProofChainTopNav() {
+  const walletAddress = useWalletAddress();
+  const walletLabel = walletAddress ? shortenWalletAddress(walletAddress) : "Connect Wallet";
+
   return (
     <header className="sticky top-0 z-50 border-b border-border/40 bg-surface-glass/70 backdrop-blur-xl">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -53,10 +57,14 @@ export function ProofChainTopNav() {
           >
             <Bell className="h-4 w-4" />
           </button>
-          <Button asChild variant="outline" size="sm" className="gap-2">
-            <Link to="/auth">
+          <Button asChild variant="outline" size="sm" className="max-w-40 gap-2">
+            <Link
+              to="/auth"
+              aria-label={walletAddress ? `Connected wallet ${walletAddress}` : "Connect wallet"}
+              title={walletAddress ?? "Connect wallet"}
+            >
               <Wallet2 className="h-4 w-4" />
-              Connect Wallet
+              <span className="truncate">{walletLabel}</span>
             </Link>
           </Button>
         </div>
