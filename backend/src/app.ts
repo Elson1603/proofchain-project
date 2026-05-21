@@ -10,6 +10,7 @@ import nftRoutes from './modules/nft/routes'
 import notificationsRoutes from './modules/notifications/routes'
 import blockchainIndexerRoutes from './modules/blockchain-indexer/routes'
 import { attachmentsRouter, conversationsRouter, messagesRouter } from './modules/chat/routes'
+import { setupSwaggerDocs } from './docs/swagger'
 import { errorHandler, notFoundHandler } from './middleware/error.middleware'
 import { setupRouteSecurity, setupSecurityMiddleware } from './middleware/security.middleware'
 
@@ -20,6 +21,7 @@ export function createApp() {
 
   setupSecurityMiddleware(app)
   setupRouteSecurity(app)
+  setupSwaggerDocs(app)
 
   app.use('/api/auth', authRoutes)
   app.use('/api/profile', profileRoutes)

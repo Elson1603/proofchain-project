@@ -56,9 +56,19 @@ export const submissionsController = {
         mimeType: file.mimetype,
       })
 
+      const gatewayUrl = pinataService.buildGatewayUrl(uploadResult.cid)
+
       res.status(201).json({
-        ...submission,
-        gatewayUrl: pinataService.buildGatewayUrl(uploadResult.cid),
+        success: true,
+        message: 'Upload successful',
+        data: {
+          submission: {
+            ...submission,
+            gatewayUrl,
+          },
+          ipfsCid: uploadResult.cid,
+          gatewayUrl,
+        },
       })
     } catch (error) {
       next(error)
