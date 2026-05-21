@@ -10,6 +10,14 @@ export interface JwtAuthPayload {
   role: UserRole
 }
 
+declare global {
+  namespace Express {
+    interface Request {
+      user?: JwtAuthPayload
+    }
+  }
+}
+
 export interface AuthenticatedRequest extends Request {
   user?: JwtAuthPayload
 }

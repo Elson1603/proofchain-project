@@ -1,7 +1,6 @@
 import { Router } from 'express'
 import { authenticate } from '../../middleware/auth.middleware'
 import { authorizeRoles } from '../../middleware/role.middleware'
-import { authRateLimiter } from '../../middleware/rateLimit.middleware'
 import { authController } from './controller'
 import {
   linkWalletSchema,
@@ -15,8 +14,8 @@ import {
 
 const router = Router()
 
-router.post('/nonce', authRateLimiter, validate(nonceSchema), authController.nonce)
-router.post('/verify', authRateLimiter, validate(verifySchema), authController.verify)
+router.post('/nonce', validate(nonceSchema), authController.nonce)
+router.post('/verify', validate(verifySchema), authController.verify)
 router.post('/refresh', validate(refreshSchema), authController.refresh)
 router.post('/logout', validate(logoutSchema), authController.logout)
 

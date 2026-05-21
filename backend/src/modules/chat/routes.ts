@@ -1,8 +1,7 @@
-import { NextFunction, Request, Response, Router } from 'express'
-import rateLimit from 'express-rate-limit'
-import multer from 'multer'
-import type { FileFilterCallback } from 'multer'
+import { Router } from 'express'
 import { authenticate } from '../../middleware/auth.middleware'
+import { messageRateLimiter } from '../../middleware/rateLimit.middleware'
+import { createSecureUploadMiddleware } from '../../middleware/upload.middleware'
 import { messagingController } from './controller'
 import {
   validateConversationById,
@@ -17,105 +16,7 @@ import {
   validateUploadAttachment,
 } from './validation'
 
-const DEFAULT_MAX_FILE_MB = 25
-const maxFileMb = Number(process.env.MESSAGE_ATTACHMENT_MAX_FILE_MB ?? DEFAULT_MAX_FILE_MB)
-const maxFileBytes = Math.max(1, maxFileMb) * 1024 * 1024
-
-const defaultMimeTypes = [
-  'application/pdf',
-  'application/zip',
-  'application/x-zip-compressed',
-  'application/x-7z-compressed',
-  'application/gzip',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-powerpoint',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'text/plain',
-  'text/csv',
-  'text/markdown',
-  'application/json',
-]
-
-const allowedMimeTypes = (process.env.MESSAGE_ATTACHMENT_ALLOWED_MIME_TYPES ?? '')
-  .split(',')
-  .map((value) => value.trim())
-  .filter(Boolean)
-
-const effectiveAllowedMimeTypes = allowedMimeTypes.length ? allowedMimeTypes : defaultMimeTypes
-const allowedPrefixes = ['image/']
-const blockedExtensions = new Set([
-  '.bat',
-  '.cmd',
-  '.com',
-  '.cpl',
-  '.dll',
-  '.exe',
-  '.js',
-  '.jar',
-  '.msi',
-  '.ps1',
-  '.scr',
-  '.sh',
-  '.vbs',
-])
-
-function getExtension(fileName: string) {
-  const normalized = fileName.toLowerCase()
-  const dotIndex = normalized.lastIndexOf('.')
-  return dotIndex >= 0 ? normalized.slice(dotIndex) : ''
-}
-
-function isMimeAllowed(mimeType: string) {
-  if (effectiveAllowedMimeTypes.includes(mimeType)) {
-    return true
-  }
-
-  return allowedPrefixes.some((prefix) => mimeType.startsWith(prefix))
-}
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: maxFileBytes },
-  fileFilter: (_req: Request, file: Express.Multer.File, callback: FileFilterCallback) => {
-    if (blockedExtensions.has(getExtension(file.originalname))) {
-      return callback(new Error('Executable attachments are not allowed'))
-    }
-
-    if (!isMimeAllowed(file.mimetype)) {
-      return callback(new Error('Unsupported file type'))
-    }
-
-    return callback(null, true)
-  },
-})
-
-const uploadSingle = (req: Request, res: Response, next: NextFunction) => {
-  upload.single('file')(req, res, (error: unknown) => {
-    if (error) {
-      const message = error instanceof Error ? error.message : 'File upload failed'
-      return res.status(400).json({
-        success: false,
-        message,
-      })
-    }
-
-    return next()
-  })
-}
-
-const messageRateLimiter = rateLimit({
-  windowMs: 10 * 1000,
-  limit: Number(process.env.MESSAGE_SEND_RATE_LIMIT ?? 20),
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Too many messages. Please slow down.',
-  },
-})
+const uploadSingle = createSecureUploadMiddleware()
 
 export const messagesRouter = Router()
 export const conversationsRouter = Router()
@@ -153,7 +54,7 @@ conversationsRouter.get('/:id', authenticate(), validateConversationById, messag
 attachmentsRouter.post(
   '/upload',
   authenticate(),
-  uploadSingle,
+  ...uploadSingle,
   validateUploadAttachment,
   messagingController.upload,
 )

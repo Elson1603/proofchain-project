@@ -1,7 +1,7 @@
 import crypto from 'crypto'
-import jwt, { JwtPayload, SignOptions } from 'jsonwebtoken'
+import jwt, { JsonWebTokenError, JwtPayload, SignOptions } from 'jsonwebtoken'
 import { getAddress, verifyMessage } from 'ethers'
-import { AuthTokens, JwtAuthPayload, UserRole } from './types'
+import { AuthTokens, JwtAuthPayload, UserRole, USER_ROLES } from './types'
 
 const DEFAULT_ACCESS_EXPIRES_IN = '15m'
 const DEFAULT_REFRESH_EXPIRES_IN = '30d'
@@ -39,6 +39,28 @@ function requireEnv(name: string) {
   return value
 }
 
+function isUserRole(value: unknown): value is UserRole {
+  return typeof value === 'string' && (USER_ROLES as readonly string[]).includes(value)
+}
+
+function requireJwtAuthPayload(payload: string | JwtPayload): JwtAuthPayload {
+  if (typeof payload === 'string') {
+    throw new JsonWebTokenError('Invalid token payload')
+  }
+
+  const { userId, walletAddress, role } = payload
+
+  if (typeof userId !== 'string' || typeof walletAddress !== 'string' || !isUserRole(role)) {
+    throw new JsonWebTokenError('Invalid token payload')
+  }
+
+  return {
+    userId,
+    walletAddress,
+    role,
+  }
+}
+
 export function signAccessToken(payload: JwtAuthPayload) {
   const options: SignOptions = {
     expiresIn: (process.env.JWT_EXPIRES_IN || DEFAULT_ACCESS_EXPIRES_IN) as SignOptions['expiresIn'],
@@ -56,20 +78,21 @@ export function signRefreshToken(payload: JwtAuthPayload & { sessionId: string }
 }
 
 export function verifyAccessToken(token: string): JwtAuthPayload {
-  const payload = jwt.verify(token, requireEnv('JWT_SECRET')) as JwtPayload & JwtAuthPayload
-
-  return {
-    userId: payload.userId,
-    walletAddress: payload.walletAddress,
-    role: payload.role,
-  }
+  return requireJwtAuthPayload(jwt.verify(token, requireEnv('JWT_SECRET')))
 }
 
 export function verifyRefreshToken(token: string) {
-  return jwt.verify(token, requireEnv('JWT_REFRESH_SECRET')) as JwtPayload &
-    JwtAuthPayload & {
-      sessionId: string
-    }
+  const payload = jwt.verify(token, requireEnv('JWT_REFRESH_SECRET'))
+  const authPayload = requireJwtAuthPayload(payload)
+
+  if (typeof payload === 'string' || typeof payload.sessionId !== 'string') {
+    throw new JsonWebTokenError('Invalid token payload')
+  }
+
+  return {
+    ...authPayload,
+    sessionId: payload.sessionId,
+  }
 }
 
 export function createTokenPair(payload: JwtAuthPayload, sessionId: string): AuthTokens {
