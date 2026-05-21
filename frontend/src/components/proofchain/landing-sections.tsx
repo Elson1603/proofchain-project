@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Link } from "@tanstack/react-router";
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -58,13 +59,17 @@ export function LandingHero() {
             transition={{ duration: 0.45, delay: 0.2 }}
             className="mt-8 flex flex-wrap items-center gap-3"
           >
-            <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
-              Start as Freelancer
-              <ChevronRight className="h-4 w-4" />
+            <Button asChild className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+              <Link to="/auth">
+                Start as Freelancer
+                <ChevronRight className="h-4 w-4" />
+              </Link>
             </Button>
-            <Button variant="outline" className="gap-2">
-              Hire Talent
-              <ArrowUpRight className="h-4 w-4" />
+            <Button asChild variant="outline" className="gap-2">
+              <Link to="/client/dashboard">
+                Hire Talent
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
             </Button>
           </motion.div>
         </div>
