@@ -26,7 +26,7 @@ export const Route = createFileRoute("/client/approval-workflow")({
 const clientNav = [
   { label: "Dashboard", to: "/client/dashboard" },
   { label: "Approvals", to: "/client/approval-workflow" },
-  { label: "Project Details", to: "/project-details" },
+  { label: "Project Details", to: "/client/project-details" },
   { label: "Messages", to: "/messages" },
   { label: "Settings", to: "/auth" },
 ];
@@ -183,6 +183,21 @@ function ApprovalWorkflowPage() {
     });
   };
 
+  const handleSubmissionDecision = (
+    submission: (typeof submissions)[number],
+    action: "approve" | "reject",
+    index: number,
+  ) => {
+    setSubmissionId(submission.hash);
+    setMilestoneIndex(String(index));
+    setPaymentType(action === "approve" ? "milestone_release" : "milestone_rejected");
+    setStatus(
+      action === "approve"
+        ? `${submission.project} selected. Review the escrow fields, then run Approve milestone.`
+        : `${submission.project} selected for rejection. Review the project chain ID, then run Raise dispute.`,
+    );
+  };
+
   useEffect(() => {
     if (!result?.txHash || !pendingAction || !pendingPayload) {
       return;
@@ -254,6 +269,7 @@ function ApprovalWorkflowPage() {
       title="Approval Workflow"
       subtitle="Validate deliverables and release milestone payments without ETH gas."
       navItems={clientNav}
+      workspaceLabel="Client OS"
     >
       <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
         <article className="glass-panel rounded-xl p-4">
@@ -409,17 +425,28 @@ function ApprovalWorkflowPage() {
         <article className="glass-panel rounded-xl p-4">
           <h2 className="text-base font-semibold text-foreground">Pending submissions</h2>
           <div className="mt-4 space-y-3">
-            {submissions.map((submission) => (
+            {submissions.map((submission, index) => (
               <div key={submission.hash} className="surface-panel rounded-lg p-3">
                 <p className="text-sm font-medium text-foreground">{submission.project}</p>
                 <p className="text-xs text-muted-foreground">{submission.freelancer}</p>
                 <p className="mt-2 text-xs text-primary">Proof hash: {submission.hash}</p>
                 <div className="mt-3 flex gap-2">
-                  <Button size="sm" className="gap-2">
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => handleSubmissionDecision(submission, "approve", index)}
+                    disabled={isBusy}
+                  >
                     <CheckCircle2 className="h-4 w-4" />
                     Approve
                   </Button>
-                  <Button size="sm" variant="outline" className="gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => handleSubmissionDecision(submission, "reject", index)}
+                    disabled={isBusy}
+                  >
                     <XCircle className="h-4 w-4" />
                     Reject
                   </Button>

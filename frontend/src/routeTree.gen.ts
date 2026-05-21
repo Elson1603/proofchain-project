@@ -17,10 +17,12 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProfileUserIdRouteImport } from './routes/profile.$userId'
 import { Route as FreelancerSubmitWorkRouteImport } from './routes/freelancer.submit-work'
+import { Route as FreelancerProjectsRouteImport } from './routes/freelancer.projects'
 import { Route as FreelancerProfileRouteImport } from './routes/freelancer.profile'
 import { Route as FreelancerNftCertificatesRouteImport } from './routes/freelancer.nft-certificates'
 import { Route as FreelancerEarningsRouteImport } from './routes/freelancer.earnings'
 import { Route as FreelancerDashboardRouteImport } from './routes/freelancer.dashboard'
+import { Route as ClientProjectDetailsRouteImport } from './routes/client.project-details'
 import { Route as ClientDashboardRouteImport } from './routes/client.dashboard'
 import { Route as ClientApprovalWorkflowRouteImport } from './routes/client.approval-workflow'
 import { Route as CertificateTokenIdRouteImport } from './routes/certificate.$tokenId'
@@ -66,6 +68,11 @@ const FreelancerSubmitWorkRoute = FreelancerSubmitWorkRouteImport.update({
   path: '/freelancer/submit-work',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FreelancerProjectsRoute = FreelancerProjectsRouteImport.update({
+  id: '/freelancer/projects',
+  path: '/freelancer/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FreelancerProfileRoute = FreelancerProfileRouteImport.update({
   id: '/freelancer/profile',
   path: '/freelancer/profile',
@@ -85,6 +92,11 @@ const FreelancerEarningsRoute = FreelancerEarningsRouteImport.update({
 const FreelancerDashboardRoute = FreelancerDashboardRouteImport.update({
   id: '/freelancer/dashboard',
   path: '/freelancer/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientProjectDetailsRoute = ClientProjectDetailsRouteImport.update({
+  id: '/client/project-details',
+  path: '/client/project-details',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientDashboardRoute = ClientDashboardRouteImport.update({
@@ -118,10 +130,12 @@ export interface FileRoutesByFullPath {
   '/certificate/$tokenId': typeof CertificateTokenIdRoute
   '/client/approval-workflow': typeof ClientApprovalWorkflowRoute
   '/client/dashboard': typeof ClientDashboardRoute
+  '/client/project-details': typeof ClientProjectDetailsRoute
   '/freelancer/dashboard': typeof FreelancerDashboardRoute
   '/freelancer/earnings': typeof FreelancerEarningsRoute
   '/freelancer/nft-certificates': typeof FreelancerNftCertificatesRoute
   '/freelancer/profile': typeof FreelancerProfileRoute
+  '/freelancer/projects': typeof FreelancerProjectsRoute
   '/freelancer/submit-work': typeof FreelancerSubmitWorkRoute
   '/profile/$userId': typeof ProfileUserIdRoute
   '/projects/$id/chat': typeof ProjectsIdChatRoute
@@ -136,10 +150,12 @@ export interface FileRoutesByTo {
   '/certificate/$tokenId': typeof CertificateTokenIdRoute
   '/client/approval-workflow': typeof ClientApprovalWorkflowRoute
   '/client/dashboard': typeof ClientDashboardRoute
+  '/client/project-details': typeof ClientProjectDetailsRoute
   '/freelancer/dashboard': typeof FreelancerDashboardRoute
   '/freelancer/earnings': typeof FreelancerEarningsRoute
   '/freelancer/nft-certificates': typeof FreelancerNftCertificatesRoute
   '/freelancer/profile': typeof FreelancerProfileRoute
+  '/freelancer/projects': typeof FreelancerProjectsRoute
   '/freelancer/submit-work': typeof FreelancerSubmitWorkRoute
   '/profile/$userId': typeof ProfileUserIdRoute
   '/projects/$id/chat': typeof ProjectsIdChatRoute
@@ -155,10 +171,12 @@ export interface FileRoutesById {
   '/certificate/$tokenId': typeof CertificateTokenIdRoute
   '/client/approval-workflow': typeof ClientApprovalWorkflowRoute
   '/client/dashboard': typeof ClientDashboardRoute
+  '/client/project-details': typeof ClientProjectDetailsRoute
   '/freelancer/dashboard': typeof FreelancerDashboardRoute
   '/freelancer/earnings': typeof FreelancerEarningsRoute
   '/freelancer/nft-certificates': typeof FreelancerNftCertificatesRoute
   '/freelancer/profile': typeof FreelancerProfileRoute
+  '/freelancer/projects': typeof FreelancerProjectsRoute
   '/freelancer/submit-work': typeof FreelancerSubmitWorkRoute
   '/profile/$userId': typeof ProfileUserIdRoute
   '/projects/$id/chat': typeof ProjectsIdChatRoute
@@ -175,10 +193,12 @@ export interface FileRouteTypes {
     | '/certificate/$tokenId'
     | '/client/approval-workflow'
     | '/client/dashboard'
+    | '/client/project-details'
     | '/freelancer/dashboard'
     | '/freelancer/earnings'
     | '/freelancer/nft-certificates'
     | '/freelancer/profile'
+    | '/freelancer/projects'
     | '/freelancer/submit-work'
     | '/profile/$userId'
     | '/projects/$id/chat'
@@ -193,10 +213,12 @@ export interface FileRouteTypes {
     | '/certificate/$tokenId'
     | '/client/approval-workflow'
     | '/client/dashboard'
+    | '/client/project-details'
     | '/freelancer/dashboard'
     | '/freelancer/earnings'
     | '/freelancer/nft-certificates'
     | '/freelancer/profile'
+    | '/freelancer/projects'
     | '/freelancer/submit-work'
     | '/profile/$userId'
     | '/projects/$id/chat'
@@ -211,10 +233,12 @@ export interface FileRouteTypes {
     | '/certificate/$tokenId'
     | '/client/approval-workflow'
     | '/client/dashboard'
+    | '/client/project-details'
     | '/freelancer/dashboard'
     | '/freelancer/earnings'
     | '/freelancer/nft-certificates'
     | '/freelancer/profile'
+    | '/freelancer/projects'
     | '/freelancer/submit-work'
     | '/profile/$userId'
     | '/projects/$id/chat'
@@ -230,10 +254,12 @@ export interface RootRouteChildren {
   CertificateTokenIdRoute: typeof CertificateTokenIdRoute
   ClientApprovalWorkflowRoute: typeof ClientApprovalWorkflowRoute
   ClientDashboardRoute: typeof ClientDashboardRoute
+  ClientProjectDetailsRoute: typeof ClientProjectDetailsRoute
   FreelancerDashboardRoute: typeof FreelancerDashboardRoute
   FreelancerEarningsRoute: typeof FreelancerEarningsRoute
   FreelancerNftCertificatesRoute: typeof FreelancerNftCertificatesRoute
   FreelancerProfileRoute: typeof FreelancerProfileRoute
+  FreelancerProjectsRoute: typeof FreelancerProjectsRoute
   FreelancerSubmitWorkRoute: typeof FreelancerSubmitWorkRoute
   ProfileUserIdRoute: typeof ProfileUserIdRoute
   ProjectsIdChatRoute: typeof ProjectsIdChatRoute
@@ -297,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FreelancerSubmitWorkRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/freelancer/projects': {
+      id: '/freelancer/projects'
+      path: '/freelancer/projects'
+      fullPath: '/freelancer/projects'
+      preLoaderRoute: typeof FreelancerProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/freelancer/profile': {
       id: '/freelancer/profile'
       path: '/freelancer/profile'
@@ -323,6 +356,13 @@ declare module '@tanstack/react-router' {
       path: '/freelancer/dashboard'
       fullPath: '/freelancer/dashboard'
       preLoaderRoute: typeof FreelancerDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/client/project-details': {
+      id: '/client/project-details'
+      path: '/client/project-details'
+      fullPath: '/client/project-details'
+      preLoaderRoute: typeof ClientProjectDetailsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/client/dashboard': {
@@ -366,10 +406,12 @@ const rootRouteChildren: RootRouteChildren = {
   CertificateTokenIdRoute: CertificateTokenIdRoute,
   ClientApprovalWorkflowRoute: ClientApprovalWorkflowRoute,
   ClientDashboardRoute: ClientDashboardRoute,
+  ClientProjectDetailsRoute: ClientProjectDetailsRoute,
   FreelancerDashboardRoute: FreelancerDashboardRoute,
   FreelancerEarningsRoute: FreelancerEarningsRoute,
   FreelancerNftCertificatesRoute: FreelancerNftCertificatesRoute,
   FreelancerProfileRoute: FreelancerProfileRoute,
+  FreelancerProjectsRoute: FreelancerProjectsRoute,
   FreelancerSubmitWorkRoute: FreelancerSubmitWorkRoute,
   ProfileUserIdRoute: ProfileUserIdRoute,
   ProjectsIdChatRoute: ProjectsIdChatRoute,

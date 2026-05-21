@@ -12,11 +12,19 @@ interface DashboardShellProps {
   title: string;
   subtitle: string;
   navItems: NavItem[];
+  workspaceLabel?: string;
   notificationCount?: number;
   children: ReactNode;
 }
 
-export function DashboardShell({ title, subtitle, navItems, notificationCount, children }: DashboardShellProps) {
+export function DashboardShell({
+  title,
+  subtitle,
+  navItems,
+  workspaceLabel = "Freelance OS",
+  notificationCount,
+  children,
+}: DashboardShellProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const walletAddress = useWalletAddress();
   const walletLabel = walletAddress ? shortenWalletAddress(walletAddress) : "Wallet Connected";
@@ -26,7 +34,7 @@ export function DashboardShell({ title, subtitle, navItems, notificationCount, c
       <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[220px_1fr] lg:px-8">
         <aside className="glass-panel h-fit rounded-xl p-4">
           <p className="font-display text-base font-bold text-foreground">ProofChain</p>
-          <p className="mt-1 text-xs text-muted-foreground">Freelance OS</p>
+          <p className="mt-1 text-xs text-muted-foreground">{workspaceLabel}</p>
           <nav className="mt-6 space-y-1">
             {navItems.map((item) => {
               const active = pathname === item.to;

@@ -410,7 +410,16 @@ export const nftService = {
     })
 
     if (!certificate) {
-      const blockchain = await blockchainService.verifyCertificate(tokenId)
+      const blockchain = await blockchainService.verifyCertificate(tokenId).catch((error) => {
+        console.warn(`Certificate ${tokenId} is not in the database and could not be verified on-chain`, error)
+
+        return {
+          valid: false,
+          owner: 'Unavailable',
+          metadataURI: '',
+        }
+      })
+
       return {
         valid: blockchain.valid,
         owner: blockchain.owner,

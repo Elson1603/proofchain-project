@@ -19,7 +19,7 @@ export const Route = createFileRoute("/freelancer/dashboard")({
 const freelancerNav = [
   { label: "Dashboard", to: "/freelancer/dashboard" },
   { label: "Profile", to: "/freelancer/profile" },
-  { label: "Projects", to: "/project-details" },
+  { label: "Projects", to: "/freelancer/projects" },
   { label: "Messages", to: "/messages" },
   { label: "Submit Work", to: "/freelancer/submit-work" },
   { label: "NFT Certificates", to: "/freelancer/nft-certificates" },

@@ -18,7 +18,10 @@ type CertificateExplorerResponse = {
   };
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
+function resolveApiBaseUrl() {
+  const raw = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
+  return raw.replace(/\/+$/, '');
+}
 
 export const Route = createFileRoute('/certificate/$tokenId')({
   head: () => ({
@@ -35,6 +38,7 @@ export const Route = createFileRoute('/certificate/$tokenId')({
 
 function CertificateExplorerPage() {
   const { tokenId } = Route.useParams();
+  const apiBaseUrl = resolveApiBaseUrl();
   const [certificate, setCertificate] = useState<CertificateExplorerResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +51,7 @@ function CertificateExplorerPage() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`${API_BASE_URL}/nft/explorer/${tokenId}`);
+        const response = await fetch(`${apiBaseUrl}/api/nft/explorer/${tokenId}`);
         if (!response.ok) {
           throw new Error('Certificate not found');
         }
@@ -72,7 +76,7 @@ function CertificateExplorerPage() {
     return () => {
       cancelled = true;
     };
-  }, [tokenId]);
+  }, [apiBaseUrl, tokenId]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">

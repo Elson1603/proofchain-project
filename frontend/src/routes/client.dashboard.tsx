@@ -20,7 +20,7 @@ export const Route = createFileRoute("/client/dashboard")({
 const clientNav = [
   { label: "Dashboard", to: "/client/dashboard" },
   { label: "Approvals", to: "/client/approval-workflow" },
-  { label: "Project Details", to: "/project-details" },
+  { label: "Project Details", to: "/client/project-details" },
   { label: "Messages", to: "/messages" },
   { label: "Settings", to: "/auth" },
 ];
@@ -40,6 +40,7 @@ function ClientDashboardPage() {
       title="Client Dashboard"
       subtitle="Review deliverables and release secure gasless payments."
       navItems={clientNav}
+      workspaceLabel="Client OS"
       notificationCount={unreadCount}
     >
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

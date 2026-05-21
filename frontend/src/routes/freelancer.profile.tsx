@@ -146,7 +146,7 @@ type ApiResponse<T> =
 const freelancerNav = [
   { label: "Dashboard", to: "/freelancer/dashboard" },
   { label: "Profile", to: "/freelancer/profile" },
-  { label: "Projects", to: "/project-details" },
+  { label: "Projects", to: "/freelancer/projects" },
   { label: "Messages", to: "/messages" },
   { label: "Submit Work", to: "/freelancer/submit-work" },
   { label: "NFT Certificates", to: "/freelancer/nft-certificates" },
@@ -162,11 +162,25 @@ function resolveApiBaseUrl(): string {
   return raw.replace(/\/$/, "");
 }
 
+function getStoredAccessToken() {
+  if (typeof window === "undefined") return null;
+
+  return (
+    window.localStorage.getItem("proofchain_access_token") ??
+    window.localStorage.getItem("accessToken") ??
+    window.localStorage.getItem("token")
+  );
+}
+
 function shortenWallet(address: string) {
   if (!address) return "";
   const head = address.slice(0, 6);
   const tail = address.slice(-4);
   return `${head}…${tail}`;
+}
+
+function certificateTokenId(certificateId: string) {
+  return certificateId.replace(/\D/g, "") || "1017";
 }
 
 function formatUsd(amount: number) {
@@ -349,13 +363,16 @@ function seededMockData() {
 
 async function fetchMyProfile(apiBaseUrl: string): Promise<UserProfile> {
   const mock = seededMockData().profile;
-  if (!apiBaseUrl) return mock;
+  const token = getStoredAccessToken();
+  if (!apiBaseUrl || !token) return mock;
 
   try {
     const response = await fetch(`${apiBaseUrl}/api/profile/me`, {
       method: "GET",
-      headers: { Accept: "application/json" },
-      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     const payload = (await response.json()) as ApiResponse<{
@@ -1014,9 +1031,11 @@ function FreelancerProfilePage() {
                         </div>
                         {cert.verified ? <ShieldCheck className="mt-1 h-4 w-4 text-info" /> : null}
                       </div>
-                      <Button variant="outline" size="sm" className="mt-4 w-full gap-2">
-                        <ExternalLink className="h-4 w-4" />
-                        View certificate
+                      <Button asChild variant="outline" size="sm" className="mt-4 w-full gap-2">
+                        <Link to="/certificate/$tokenId" params={{ tokenId: certificateTokenId(cert.id) }}>
+                          <ExternalLink className="h-4 w-4" />
+                          View certificate
+                        </Link>
                       </Button>
                     </div>
                   </motion.article>
@@ -1088,9 +1107,11 @@ function FreelancerProfilePage() {
                         <span className="status-dot" />
                         {project.ugfGasless ? "UGF gasless payment" : "Standard settlement"}
                       </span>
-                      <Button variant="outline" size="sm" className="gap-2">
-                        <ShieldCheck className="h-4 w-4" />
-                        View proof
+                      <Button asChild variant="outline" size="sm" className="gap-2">
+                        <Link to="/freelancer/projects">
+                          <ShieldCheck className="h-4 w-4" />
+                          View proof
+                        </Link>
                       </Button>
                     </div>
                   </motion.article>

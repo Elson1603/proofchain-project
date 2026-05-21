@@ -66,7 +66,7 @@ const reactionOptions = ["👍", "❤️", "🔥", "✅"];
 
 const freelancerNavigationItems = [
   { label: "Dashboard", to: "/freelancer/dashboard", icon: LayoutDashboard },
-  { label: "Projects", to: "/project-details", icon: Archive },
+  { label: "Projects", to: "/freelancer/projects", icon: Archive },
   { label: "Messages", to: "/messages", icon: MessageSquare },
   { label: "Submit Work", to: "/freelancer/submit-work", icon: Upload },
   { label: "NFT Certificates", to: "/freelancer/nft-certificates", icon: Gem },
@@ -77,7 +77,7 @@ const freelancerNavigationItems = [
 const clientNavigationItems = [
   { label: "Dashboard", to: "/client/dashboard", icon: LayoutDashboard },
   { label: "Approvals", to: "/client/approval-workflow", icon: BadgeCheck },
-  { label: "Projects", to: "/project-details", icon: Archive },
+  { label: "Projects", to: "/client/project-details", icon: Archive },
   { label: "Messages", to: "/messages", icon: MessageSquare },
   { label: "Settings", to: "/auth", icon: Settings },
 ];
