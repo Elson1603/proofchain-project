@@ -53,9 +53,11 @@ export function ProofChainTopNav() {
           >
             <Bell className="h-4 w-4" />
           </button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Wallet2 className="h-4 w-4" />
-            Connect Wallet
+          <Button asChild variant="outline" size="sm" className="gap-2">
+            <Link to="/auth">
+              <Wallet2 className="h-4 w-4" />
+              Connect Wallet
+            </Link>
           </Button>
         </div>
       </div>

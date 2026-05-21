@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Wallet, ShieldCheck, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { connectWallet } from "@/lib/escrow";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -22,6 +23,21 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
+  const handleMetaMaskConnect = async () => {
+    try {
+      const { address } = await connectWallet();
+      if (address) {
+        window.localStorage.setItem("proofchain_wallet_address", address);
+      }
+      // Navigate to dashboard after connect
+      window.location.href = "/freelancer/dashboard";
+    } catch (err) {
+      // Simple user feedback for local debugging
+      // eslint-disable-next-line no-console
+      console.error(err);
+      window.alert(String(err));
+    }
+  };
   return (
     <div className="relative min-h-screen overflow-hidden px-4 py-12 sm:px-6 lg:px-8">
       <div className="ambient-grid pointer-events-none absolute inset-0 opacity-75" />
@@ -36,6 +52,7 @@ function AuthPage() {
           <div className="mt-6 space-y-3">
             <button
               type="button"
+              onClick={handleMetaMaskConnect}
               className="flex w-full items-center justify-between rounded-lg border border-border/80 bg-secondary px-4 py-3 text-left text-sm text-foreground transition-colors hover:bg-accent"
             >
               <span className="inline-flex items-center gap-2">
