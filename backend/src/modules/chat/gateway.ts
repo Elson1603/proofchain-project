@@ -1,52 +1,21 @@
 import type { Server as HttpServer } from 'http'
-import { Server, Socket } from 'socket.io'
-import { JwtAuthPayload } from '../auth/types'
-import { verifyAccessToken } from '../auth/utils'
+import type { SocketAck, SocketErrorResponse, SocketSuccessResponse } from '../../socket/types'
+import type { TypedServer, TypedSocket } from '../../socket/handlers'
+import { projectRoom, userRoom } from '../../socket/handlers'
+import { closeSocket, initializeSocket } from '../../socket/socket'
 import { AppError, isAppError } from '../../utils/errors'
 import { messagingService } from './service'
 import { MessagingBroadcastEvent, MessagingBroadcastPayload, messagingEvents } from './sockets/events'
-import { projectRoom, userRoom } from './utils/rooms'
 import { nftEvents, type NftBroadcastEvent, type NftBroadcastPayload } from '../nft/events'
-
-type Ack = (payload: unknown) => void
-type AuthenticatedSocket = Socket & {
-  data: {
-    user: JwtAuthPayload
-  }
-}
 
 const SOCKET_RATE_WINDOW_MS = Number(process.env.SOCKET_MESSAGE_RATE_WINDOW_MS ?? 10_000)
 const SOCKET_RATE_LIMIT = Number(process.env.SOCKET_MESSAGE_RATE_LIMIT ?? 20)
 
-let io: Server | null = null
 let busHandlers: Array<{ event: MessagingBroadcastEvent; handler: (payload: MessagingBroadcastPayload) => void }> = []
 let nftBusHandlers: Array<{ event: NftBroadcastEvent; handler: (payload: NftBroadcastPayload) => void }> = []
 const socketMessageBuckets = new Map<string, number[]>()
 
-function getAllowedOrigins() {
-  return process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true
-}
-
-function extractToken(socket: Socket) {
-  const authToken = socket.handshake.auth?.token
-  if (typeof authToken === 'string' && authToken.trim()) {
-    return authToken.trim()
-  }
-
-  const queryToken = socket.handshake.query.token
-  if (typeof queryToken === 'string' && queryToken.trim()) {
-    return queryToken.trim()
-  }
-
-  const authHeader = socket.handshake.headers.authorization
-  if (authHeader?.startsWith('Bearer ')) {
-    return authHeader.slice(7)
-  }
-
-  return null
-}
-
-function toSocketError(error: unknown) {
+function toSocketError(error: unknown): SocketErrorResponse {
   if (isAppError(error)) {
     return {
       success: false,
@@ -63,35 +32,23 @@ function toSocketError(error: unknown) {
   }
 }
 
-function ackSuccess(ack: Ack | undefined, payload: Record<string, unknown> = {}) {
+function ackSuccess<T extends Record<string, unknown>>(
+  ack: SocketAck<SocketSuccessResponse<T> | SocketErrorResponse> | undefined,
+  payload: T,
+) {
   if (typeof ack === 'function') {
     ack({ success: true, ...payload })
   }
 }
 
-function ackError(socket: Socket, ack: Ack | undefined, error: unknown) {
+function ackError(socket: TypedSocket, ack: SocketAck<unknown> | undefined, error: unknown) {
   const payload = toSocketError(error)
   if (typeof ack === 'function') {
-    ack(payload)
+    ;(ack as SocketAck<SocketErrorResponse>)(payload)
     return
   }
 
   socket.emit('socket_error', payload)
-}
-
-function normalizeProjectIds(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.flatMap((item) => normalizeProjectIds(item))
-  }
-
-  if (typeof value !== 'string') {
-    return []
-  }
-
-  return value
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
 }
 
 function assertSocketRateLimit(userId: string) {
@@ -108,43 +65,10 @@ function assertSocketRateLimit(userId: string) {
   socketMessageBuckets.set(userId, bucket)
 }
 
-async function joinProjectRoom(socket: AuthenticatedSocket, projectId: string) {
-  await messagingService.assertProjectMembership(projectId, socket.data.user)
-  await socket.join(projectRoom(projectId))
-
-  return projectId
-}
-
-async function handleJoin(socket: AuthenticatedSocket, payload: { projectId?: string }, ack?: Ack) {
-  try {
-    if (!payload?.projectId) {
-      throw new AppError(400, 'projectId is required', 'PROJECT_ID_REQUIRED')
-    }
-
-    const projectId = await joinProjectRoom(socket, payload.projectId)
-    ackSuccess(ack, { room: projectRoom(projectId), projectId })
-  } catch (error) {
-    ackError(socket, ack, error)
-  }
-}
-
-async function handleLeave(socket: AuthenticatedSocket, payload: { projectId?: string }, ack?: Ack) {
-  try {
-    if (!payload?.projectId) {
-      throw new AppError(400, 'projectId is required', 'PROJECT_ID_REQUIRED')
-    }
-
-    await socket.leave(projectRoom(payload.projectId))
-    ackSuccess(ack, { room: projectRoom(payload.projectId), projectId: payload.projectId })
-  } catch (error) {
-    ackError(socket, ack, error)
-  }
-}
-
 async function handleSendMessage(
-  socket: AuthenticatedSocket,
+  socket: TypedSocket,
   payload: { conversationId?: string; projectId?: string; content?: string; messageType?: 'TEXT' | 'FILE' | 'SYSTEM' },
-  ack?: Ack,
+  ack?: SocketAck<unknown>,
 ) {
   try {
     assertSocketRateLimit(socket.data.user.userId)
@@ -159,56 +83,56 @@ async function handleSendMessage(
       socket.data.user,
     )
 
-    ackSuccess(ack, { message })
+    ackSuccess(ack as any, { message })
   } catch (error) {
     ackError(socket, ack, error)
   }
 }
 
-async function handleRead(socket: AuthenticatedSocket, payload: { messageId?: string }, ack?: Ack) {
+async function handleRead(socket: TypedSocket, payload: { messageId?: string }, ack?: SocketAck<unknown>) {
   try {
     if (!payload?.messageId) {
       throw new AppError(400, 'messageId is required', 'MESSAGE_ID_REQUIRED')
     }
 
     const read = await messagingService.markMessageRead(payload.messageId, socket.data.user)
-    ackSuccess(ack, { read })
+    ackSuccess(ack as any, { read })
   } catch (error) {
     ackError(socket, ack, error)
   }
 }
 
-async function handleConversationSeen(socket: AuthenticatedSocket, payload: { conversationId?: string }, ack?: Ack) {
+async function handleConversationSeen(socket: TypedSocket, payload: { conversationId?: string }, ack?: SocketAck<unknown>) {
   try {
     if (!payload?.conversationId) {
       throw new AppError(400, 'conversationId is required', 'CONVERSATION_ID_REQUIRED')
     }
 
     const result = await messagingService.markConversationSeen(payload.conversationId, socket.data.user)
-    ackSuccess(ack, result)
+    ackSuccess(ack as any, result)
   } catch (error) {
     ackError(socket, ack, error)
   }
 }
 
-async function handleReaction(socket: AuthenticatedSocket, payload: { messageId?: string; emoji?: string }, ack?: Ack) {
+async function handleReaction(socket: TypedSocket, payload: { messageId?: string; emoji?: string }, ack?: SocketAck<unknown>) {
   try {
     if (!payload?.messageId || !payload?.emoji) {
       throw new AppError(400, 'messageId and emoji are required', 'REACTION_PAYLOAD_REQUIRED')
     }
 
     const result = await messagingService.toggleReaction(payload.messageId, payload.emoji, socket.data.user)
-    ackSuccess(ack, result)
+    ackSuccess(ack as any, result)
   } catch (error) {
     ackError(socket, ack, error)
   }
 }
 
 async function handleTyping(
-  socket: AuthenticatedSocket,
+  socket: TypedSocket,
   event: 'typing_start' | 'typing_stop',
   payload: { projectId?: string; conversationId?: string },
-  ack?: Ack,
+  ack?: SocketAck<unknown>,
 ) {
   try {
     if (!payload?.projectId) {
@@ -221,13 +145,13 @@ async function handleTyping(
       conversationId: payload.conversationId,
       userId: socket.data.user.userId,
     })
-    ackSuccess(ack)
+    ackSuccess(ack as any, {})
   } catch (error) {
     ackError(socket, ack, error)
   }
 }
 
-function bindBroadcasts(server: Server) {
+function bindBroadcasts(server: TypedServer) {
   const handlers: Array<{ event: MessagingBroadcastEvent; handler: (payload: MessagingBroadcastPayload) => void }> = [
     {
       event: 'receive_message',
@@ -300,7 +224,7 @@ function bindBroadcasts(server: Server) {
   busHandlers = handlers
 }
 
-function bindNftBroadcasts(server: Server) {
+function bindNftBroadcasts(server: TypedServer) {
   const handlers: Array<{ event: NftBroadcastEvent; handler: (payload: NftBroadcastPayload) => void }> = [
     {
       event: 'nft_mint_started',
@@ -366,92 +290,59 @@ function unbindBroadcasts() {
 }
 
 export function initializeMessagingGateway(httpServer: HttpServer) {
-  if (io) {
-  bindNftBroadcasts(io)
-    return io
+  const server = initializeSocket(httpServer, {
+    authorizeProjectRoom: async (user, projectId) => {
+      await messagingService.assertProjectMembership(projectId, user)
+    },
+  })
+
+  registerMessagingGateway(server)
+  return server
+}
+
+let registered = false
+
+export function registerMessagingGateway(io: TypedServer) {
+  if (registered) {
+    return
   }
 
-  io = new Server(httpServer, {
-    cors: {
-      origin: getAllowedOrigins(),
-      credentials: true,
-    },
-    maxHttpBufferSize: 1e6,
-  })
-
-  io.use((socket, next) => {
-    const token = extractToken(socket)
-
-    if (!token) {
-      return next(new Error('Authentication token is required'))
-    }
-
-    try {
-      socket.data.user = verifyAccessToken(token)
-      return next()
-    } catch (_error) {
-      return next(new Error('Invalid or expired authentication token'))
-    }
-  })
+  registered = true
 
   io.on('connection', (socket) => {
-    const authedSocket = socket as AuthenticatedSocket
-    const user = authedSocket.data.user
-
-    void authedSocket.join(userRoom(user.userId))
-
-    const projectIds = [
-      ...normalizeProjectIds(socket.handshake.auth?.projectId),
-      ...normalizeProjectIds(socket.handshake.auth?.projectIds),
-      ...normalizeProjectIds(socket.handshake.query.projectId),
-      ...normalizeProjectIds(socket.handshake.query.projectIds),
-    ]
-
-    for (const projectId of new Set(projectIds)) {
-      void joinProjectRoom(authedSocket, projectId).catch((error) => {
-        authedSocket.emit('socket_error', toSocketError(error))
-      })
-    }
-
-    authedSocket.on('join_project_room', (payload, ack) => {
-      void handleJoin(authedSocket, payload, ack)
+    socket.on('send_message', (payload, ack) => {
+      void handleSendMessage(socket, payload as any, ack)
     })
-    authedSocket.on('leave_project_room', (payload, ack) => {
-      void handleLeave(authedSocket, payload, ack)
+    socket.on('message_read', (payload, ack) => {
+      void handleRead(socket, payload as any, ack)
     })
-    authedSocket.on('send_message', (payload, ack) => {
-      void handleSendMessage(authedSocket, payload, ack)
+    socket.on('message_seen', (payload, ack) => {
+      void handleRead(socket, payload as any, ack)
     })
-    authedSocket.on('message_read', (payload, ack) => {
-      void handleRead(authedSocket, payload, ack)
+    socket.on('conversation_seen', (payload, ack) => {
+      void handleConversationSeen(socket, payload as any, ack)
     })
-    authedSocket.on('message_seen', (payload, ack) => {
-      void handleRead(authedSocket, payload, ack)
+    socket.on('message_reaction_added', (payload, ack) => {
+      void handleReaction(socket, payload as any, ack)
     })
-    authedSocket.on('conversation_seen', (payload, ack) => {
-      void handleConversationSeen(authedSocket, payload, ack)
+    socket.on('reaction_added', (payload, ack) => {
+      void handleReaction(socket, payload as any, ack)
     })
-    authedSocket.on('message_reaction_added', (payload, ack) => {
-      void handleReaction(authedSocket, payload, ack)
+    socket.on('typing_start', (payload, ack) => {
+      void handleTyping(socket, 'typing_start', payload as any, ack)
     })
-    authedSocket.on('reaction_added', (payload, ack) => {
-      void handleReaction(authedSocket, payload, ack)
-    })
-    authedSocket.on('typing_start', (payload, ack) => {
-      void handleTyping(authedSocket, 'typing_start', payload, ack)
-    })
-    authedSocket.on('typing_stop', (payload, ack) => {
-      void handleTyping(authedSocket, 'typing_stop', payload, ack)
+    socket.on('typing_stop', (payload, ack) => {
+      void handleTyping(socket, 'typing_stop', payload as any, ack)
     })
   })
 
   bindBroadcasts(io)
-  return io
+  bindNftBroadcasts(io)
 }
 
 export function closeMessagingGateway() {
   unbindBroadcasts()
-  io?.close()
-  io = null
+  registered = false
+  closeSocket()
   socketMessageBuckets.clear()
 }
