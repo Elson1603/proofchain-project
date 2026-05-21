@@ -94,6 +94,7 @@ const conversationInclude = {
 export type MessageWithDetails = Prisma.MessageGetPayload<{ include: typeof messageInclude }>
 export type ConversationWithProjectDetails = Prisma.ConversationGetPayload<{ include: typeof conversationInclude }>
 export type ConversationListItem = Prisma.ConversationGetPayload<{ include: typeof conversationListInclude }>
+export type NotificationRecord = Prisma.NotificationGetPayload<{}>
 
 export const messagingRepository = {
   findProjectMembership(projectId: string) {
@@ -391,14 +392,18 @@ export const messagingRepository = {
     )
   },
 
-  createNotifications(notifications: Array<{ userId: string; title: string; message: string }>) {
+  createNotifications(notifications: Array<{ userId: string; title: string; message: string; type?: string }>) {
     if (!notifications.length) {
-      return Promise.resolve({ count: 0 })
+      return Promise.resolve([])
     }
 
-    return prisma.notification.createMany({
-      data: notifications,
-    })
+    return prisma.$transaction(
+      notifications.map((notification) =>
+        prisma.notification.create({
+          data: notification,
+        }),
+      ),
+    )
   },
 
   updateMessageProof(id: string, data: { messageHash: string; blockchainTxHash?: string | null; blockchainProofedAt?: Date }) {

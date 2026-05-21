@@ -109,7 +109,17 @@ describe('messagingService', () => {
     repository.findProjectMembership.mockResolvedValue(project)
     repository.upsertConversationByProject.mockResolvedValue(conversation)
     repository.projectParticipantIds.mockResolvedValue([clientId, freelancerId])
-    repository.createNotifications.mockResolvedValue({ count: 1 })
+    repository.createNotifications.mockResolvedValue([
+      {
+        id: '11111111-1111-4111-8111-111111111111',
+        userId: freelancerId,
+        title: 'New message',
+        message: 'A new message was posted in your project chat.',
+        type: 'chat',
+        isRead: false,
+        createdAt: new Date('2026-05-20T12:00:00.000Z'),
+      },
+    ])
     repository.unreadCount.mockResolvedValue(0)
     repository.latestMessage.mockResolvedValue(null)
   })
@@ -145,6 +155,7 @@ describe('messagingService', () => {
         userId: freelancerId,
         title: 'New message',
         message: 'A new message was posted in your project chat.',
+        type: 'chat',
       },
     ])
   })

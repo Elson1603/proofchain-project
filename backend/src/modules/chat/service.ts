@@ -55,20 +55,23 @@ function getProjectId(message: MessageWithDetails) {
 async function notifyProjectParticipants(projectId: string, senderId: string, title: string, message: string) {
   const recipients = (await messagingRepository.projectParticipantIds(projectId)).filter((userId) => userId !== senderId)
 
-  await messagingRepository.createNotifications(
+  const created = await messagingRepository.createNotifications(
     recipients.map((userId) => ({
       userId,
       title,
       message,
+      type: 'chat',
     })),
   )
 
-  for (const userId of recipients) {
+  for (const notification of created) {
     messagingEvents.publish('notification_created', {
       projectId,
-      userId,
-      title,
-      message,
+      userId: notification.userId,
+      type: notification.type,
+      notification,
+      title: notification.title,
+      message: notification.message,
     })
   }
 }
