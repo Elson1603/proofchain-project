@@ -11,10 +11,11 @@ interface DashboardShellProps {
   title: string;
   subtitle: string;
   navItems: NavItem[];
+  notificationCount?: number;
   children: ReactNode;
 }
 
-export function DashboardShell({ title, subtitle, navItems, children }: DashboardShellProps) {
+export function DashboardShell({ title, subtitle, navItems, notificationCount, children }: DashboardShellProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   return (
@@ -59,10 +60,15 @@ export function DashboardShell({ title, subtitle, navItems, children }: Dashboar
               </button>
               <button
                 type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/80 bg-secondary text-muted-foreground transition-colors hover:text-foreground"
+                className="relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/80 bg-secondary text-muted-foreground transition-colors hover:text-foreground"
                 aria-label="Notifications"
               >
                 <Bell className="h-4 w-4" />
+                {typeof notificationCount === "number" && notificationCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold text-primary-foreground">
+                    {Math.min(notificationCount, 99)}
+                  </span>
+                )}
               </button>
               <span className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-secondary px-3 py-1 text-xs text-muted-foreground">
                 <WalletCards className="h-3.5 w-3.5 text-primary" />

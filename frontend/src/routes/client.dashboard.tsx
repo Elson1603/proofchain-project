@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { BriefcaseBusiness, Clock3, FileSearch, Landmark, MessageSquare } from "lucide-react";
 import { DashboardShell } from "@/components/proofchain/dashboard-shell";
 import { submissions } from "@/components/proofchain/mock-data";
+import { useNotifications } from "@/hooks/use-notifications";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/client/dashboard")({
   head: () => ({
@@ -31,11 +33,14 @@ const stats = [
 ];
 
 function ClientDashboardPage() {
+  const { notifications, unreadCount, isLoading, markAllRead, markRead } = useNotifications({ limit: 5 });
+
   return (
     <DashboardShell
       title="Client Dashboard"
       subtitle="Review deliverables and release secure gasless payments."
       navItems={clientNav}
+      notificationCount={unreadCount}
     >
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
@@ -67,13 +72,45 @@ function ClientDashboardPage() {
         </article>
 
         <article className="glass-panel rounded-xl p-4">
-          <h2 className="text-base font-semibold text-foreground">Notification center</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-foreground">Notification center</h2>
+            <button
+              type="button"
+              onClick={() => void markAllRead()}
+              className="text-xs text-primary hover:underline"
+              disabled={!unreadCount}
+            >
+              Mark all read
+            </button>
+          </div>
           <div className="mt-3 space-y-2">
-            {["2 approvals need review", "Escrow top-up threshold reached", "UGF relayer synced"].map((item) => (
-              <div key={item} className="surface-panel rounded-lg p-3 text-sm text-muted-foreground">
-                <MessageSquare className="mr-2 inline h-4 w-4 text-info" />
-                {item}
-              </div>
+            {isLoading && (
+              <div className="surface-panel rounded-lg p-3 text-sm text-muted-foreground">Loading notifications...</div>
+            )}
+            {!isLoading && notifications.length === 0 && (
+              <div className="surface-panel rounded-lg p-3 text-sm text-muted-foreground">No notifications yet.</div>
+            )}
+            {notifications.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => void markRead(item.id)}
+                className={cn(
+                  "surface-panel w-full rounded-lg p-3 text-left text-sm transition",
+                  item.isRead ? "text-muted-foreground" : "border border-primary/30 text-foreground",
+                )}
+              >
+                <div className="flex items-start gap-2">
+                  <MessageSquare className="mt-0.5 h-4 w-4 text-info" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">{item.message}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {new Date(item.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </button>
             ))}
           </div>
           <Link to="/client/approval-workflow" className="mt-4 inline-block text-xs text-primary hover:underline">

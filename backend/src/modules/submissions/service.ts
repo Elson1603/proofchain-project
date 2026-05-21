@@ -1,5 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import prisma from '../../config/db'
+import { emitSubmissionUploaded } from '../../socket/events'
+import { notificationsService } from '../notifications/service'
 
 type SubmissionListFilters = {
   milestoneId?: string
@@ -53,7 +55,7 @@ export const submissionsService = {
   },
 
   async create(data: CreateSubmissionInput) {
-    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const submission = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const submission = await tx.submission.create({
         data: {
           milestoneId: data.milestoneId,
@@ -71,10 +73,44 @@ export const submissionsService = {
 
       return submission
     })
+
+    try {
+      const enriched = await prisma.submission.findUnique({
+        where: { id: submission.id },
+        include: {
+          milestone: {
+            include: {
+              project: true,
+            },
+          },
+        },
+      })
+
+      const project = enriched?.milestone?.project
+      if (project) {
+        await notificationsService.sendWorkSubmittedNotification({
+          userId: project.ownerId,
+          projectTitle: project.title,
+          milestoneTitle: enriched?.milestone?.title,
+        })
+
+        emitSubmissionUploaded({
+          submissionId: submission.id,
+          projectId: project.id,
+          uploaderId: data.submittedById,
+          ipfsCid: submission.ipfsCid ?? undefined,
+          uploadedAt: submission.createdAt.toISOString(),
+        })
+      }
+    } catch (error) {
+      console.error('Failed to emit submission notification', error)
+    }
+
+    return submission
   },
 
   async createFileSubmission(data: CreateFileSubmissionInput) {
-    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const submission = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const latestVersion = await tx.submission.findFirst({
         where: {
           milestoneId: data.milestoneId,
@@ -106,6 +142,40 @@ export const submissionsService = {
 
       return submission
     })
+
+    try {
+      const enriched = await prisma.submission.findUnique({
+        where: { id: submission.id },
+        include: {
+          milestone: {
+            include: {
+              project: true,
+            },
+          },
+        },
+      })
+
+      const project = enriched?.milestone?.project
+      if (project) {
+        await notificationsService.sendWorkSubmittedNotification({
+          userId: project.ownerId,
+          projectTitle: project.title,
+          milestoneTitle: enriched?.milestone?.title,
+        })
+
+        emitSubmissionUploaded({
+          submissionId: submission.id,
+          projectId: project.id,
+          uploaderId: data.submittedById,
+          ipfsCid: submission.ipfsCid ?? undefined,
+          uploadedAt: submission.createdAt.toISOString(),
+        })
+      }
+    } catch (error) {
+      console.error('Failed to emit submission notification', error)
+    }
+
+    return submission
   },
 
   async update(id: string, data: UpdateSubmissionInput) {

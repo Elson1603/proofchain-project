@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import prisma from '../../config/db'
 import { AppError } from '../../utils/errors'
-import { messagingEvents } from '../chat/sockets/events'
+import { notificationsService } from '../notifications/service'
 import { blockchainService } from './blockchain.service'
 import { nftEvents } from './events'
 import { pinataService } from './pinata.service'
@@ -76,21 +76,17 @@ async function findExistingCertificate(paymentId?: string, projectId?: string) {
   return null
 }
 
-function publishNotification(userId: string, title: string, message: string) {
-  void prisma.notification
-    .create({
-      data: {
-        userId,
-        title,
-        message,
-      },
+function publishNotification(userId: string, title: string, message: string, projectTitle?: string, tokenId?: number) {
+  void notificationsService
+    .sendNftMintedNotification({
+      userId,
+      projectTitle: projectTitle ?? title,
+      tokenId: tokenId ?? null,
     })
-    .then((notification) => {
-      messagingEvents.publish('notification_created', {
-        userId,
-        notification,
-      })
+    .catch((error) => {
+      console.error('Failed to send NFT notification', error)
     })
+
 }
 
 function emit(event: 'nft_mint_started' | 'nft_minted' | 'nft_failed' | 'certificate_verified', payload: Record<string, unknown>) {
@@ -266,7 +262,13 @@ async function mintCertificateWithContext(context: MintContext, input: MintCerti
       gasUsed: blockchainResult.gasUsed,
     })
 
-    publishNotification(context.freelancer.id, 'Soulbound certificate minted', `ProofChain certificate #${certificate.tokenId} was minted for ${context.project.title}`)
+    publishNotification(
+      context.freelancer.id,
+      'Soulbound certificate minted',
+      `ProofChain certificate #${certificate.tokenId} was minted for ${context.project.title}`,
+      context.project.title,
+      certificate.tokenId,
+    )
 
     emit('nft_minted', {
       userId: context.freelancer.id,

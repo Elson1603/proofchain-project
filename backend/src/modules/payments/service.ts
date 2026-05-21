@@ -1,8 +1,10 @@
 import type { PaymentStatus as PrismaPaymentStatus, Prisma } from '@prisma/client'
 import { JsonRpcProvider, isAddress } from 'ethers'
 import prisma from '../../config/db'
+import { emitPaymentCompleted } from '../../socket/events'
 import { normalizeWalletAddress } from '../auth/utils'
 import { nftService } from '../nft/service'
+import { notificationsService } from '../notifications/service'
 import {
   PAYMENT_ACTIONS,
   PAYMENT_STATUSES,
@@ -128,6 +130,81 @@ function parseMetadata(metadata: unknown): PaymentMetadata {
   return metadata as PaymentMetadata
 }
 
+function formatAmount(amount: number, currency?: string) {
+  const normalized = Number.isFinite(amount) ? amount : 0
+  const label = normalized % 1 === 0 ? normalized.toFixed(0) : normalized.toFixed(2)
+  return `${label} ${currency ?? DEFAULT_CURRENCY}`.trim()
+}
+
+async function notifyPaymentStatusChange(params: { paymentId: string; status: TransactionStatus; txHash?: string | null }) {
+  if (params.status !== 'confirmed' && params.status !== 'failed') {
+    return
+  }
+
+  const payment = await prisma.payment.findUnique({
+    where: { id: params.paymentId },
+    include: {
+      project: true,
+    },
+  })
+
+  if (!payment) {
+    return
+  }
+
+  const projectTitle = payment.project?.title ?? 'project'
+  const amountLabel = formatAmount(payment.amount, payment.currency ?? DEFAULT_CURRENCY)
+
+  if (params.status === 'confirmed') {
+    await Promise.all([
+      notificationsService.sendPaymentReleasedNotification({
+        userId: payment.payeeId,
+        projectTitle,
+        amount: amountLabel,
+        txHash: params.txHash,
+      }),
+      notificationsService.sendPaymentReleasedNotification({
+        userId: payment.payerId,
+        projectTitle,
+        amount: amountLabel,
+        txHash: params.txHash,
+      }),
+    ])
+
+    try {
+      emitPaymentCompleted({
+        paymentId: payment.id,
+        projectId: payment.projectId,
+        payerId: payment.payerId,
+        payeeId: payment.payeeId,
+        amount: String(payment.amount),
+        currency: payment.currency ?? DEFAULT_CURRENCY,
+        txHash: params.txHash ?? undefined,
+        completedAt: new Date().toISOString(),
+      })
+    } catch (error) {
+      console.warn('Socket emit failed for payment_completed', error)
+    }
+  }
+
+  if (params.status === 'failed') {
+    await Promise.all([
+      notificationsService.sendTransactionAlert({
+        userId: payment.payerId,
+        projectTitle,
+        status: 'failed',
+        amount: amountLabel,
+      }),
+      notificationsService.sendTransactionAlert({
+        userId: payment.payeeId,
+        projectTitle,
+        status: 'failed',
+        amount: amountLabel,
+      }),
+    ])
+  }
+}
+
 function normalizeAddress(input: string) {
   if (!isAddress(input)) {
     throw new Error('Invalid wallet or contract address')
@@ -239,6 +316,12 @@ async function syncTransactionStatus(transaction: {
         },
       })
     }
+
+    await notifyPaymentStatusChange({
+      paymentId: transaction.paymentId,
+      status: updatedStatus,
+      txHash: updated.txHash,
+    })
   }
 
   return updated
@@ -379,6 +462,12 @@ export const paymentsService = {
       },
     })
 
+    await notifyPaymentStatusChange({
+      paymentId: payment.id,
+      status: transactionStatus,
+      txHash: transaction.txHash,
+    })
+
     return {
       payment,
       transaction,
@@ -469,6 +558,12 @@ export const paymentsService = {
         failureReason: paymentStatus.failureReason ?? undefined,
         metadata: updatedMetadata,
       },
+    })
+
+    await notifyPaymentStatusChange({
+      paymentId: payment.id,
+      status: transactionStatus,
+      txHash: retryTransaction.txHash,
     })
 
     return {

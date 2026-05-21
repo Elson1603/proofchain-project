@@ -50,6 +50,21 @@ export type NewMessagePayload = {
   meta?: Record<string, unknown>;
 };
 
+export type NotificationPayload = {
+  userId: string;
+  type?: string;
+  notification?: {
+    id: string;
+    title: string;
+    message: string;
+    type?: string;
+    isRead: boolean;
+    createdAt: string;
+  };
+  title?: string;
+  message?: string;
+};
+
 export type SocketErrorPayload = {
   success: false;
   statusCode: number;
@@ -65,6 +80,7 @@ export interface RealtimeServerToClientEvents {
   payment_completed: (payload: PaymentCompletedPayload) => void;
   nft_minted: (payload: NftMintedPayload) => void;
   new_message: (payload: NewMessagePayload) => void;
+  notification: (payload: NotificationPayload) => void;
 }
 
 export interface RealtimeClientToServerEvents {

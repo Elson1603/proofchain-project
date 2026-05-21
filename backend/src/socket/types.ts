@@ -63,6 +63,21 @@ export type NewMessagePayload = {
   meta?: Record<string, unknown>
 }
 
+export type NotificationPayload = {
+  userId: string
+  type?: string
+  notification?: {
+    id: string
+    title: string
+    message: string
+    type?: string
+    isRead: boolean
+    createdAt: string | Date
+  }
+  title?: string
+  message?: string
+}
+
 export type PlatformBroadcastEvent =
   | 'submission_uploaded'
   | 'project_updated'
@@ -91,7 +106,7 @@ export interface ServerToClientEvents {
   message_reaction_added: (payload: unknown) => void
   message_reaction_removed: (payload: unknown) => void
   file_uploaded: (payload: unknown) => void
-  notification: (payload: unknown) => void
+  notification: (payload: NotificationPayload) => void
   typing_start: (payload: unknown) => void
   typing_stop: (payload: unknown) => void
 }

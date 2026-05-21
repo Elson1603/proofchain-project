@@ -141,6 +141,7 @@ model Submission {
 
 model Notification {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type      String   @default("system")
   title     String
   message   String
   isRead    Boolean  @default(false)

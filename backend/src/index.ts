@@ -2,6 +2,7 @@ import { createServer } from 'http'
 import { createApp } from './app'
 import { registerMessagingGateway } from './modules/chat/gateway'
 import { messagingService } from './modules/chat/service'
+import { notificationsService } from './modules/notifications/service'
 import { paymentsService } from './modules/payments/service'
 import { initializeSocket } from './socket/socket'
 
@@ -19,5 +20,6 @@ registerMessagingGateway(io)
 
 server.listen(PORT, () => {
   paymentsService.startPolling()
+  notificationsService.startReminderPolling()
   console.log(`Server running on port ${PORT}`)
 })

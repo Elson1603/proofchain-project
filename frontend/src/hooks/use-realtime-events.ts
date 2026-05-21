@@ -5,6 +5,7 @@ import type {
   NftMintedPayload,
   PaymentCompletedPayload,
   ProjectUpdatedPayload,
+  NotificationPayload,
   RealtimeSocket,
   SubmissionUploadedPayload,
 } from "@/lib/realtime-socket";
@@ -17,6 +18,8 @@ export type UseRealtimeEventsOptions = {
   logLabel?: string;
   /** Disable toast notifications (console logs still happen). */
   enableToasts?: boolean;
+  /** Optional handler for new notification events. */
+  onNotification?: (payload: NotificationPayload) => void;
 };
 
 function log(label: string | undefined, message: string, meta?: Record<string, unknown>) {
@@ -114,6 +117,17 @@ export function useRealtimeEvents(options: UseRealtimeEventsOptions = {}) {
       }
     };
 
+    const onNotification = (payload: NotificationPayload) => {
+      log(options.logLabel, "notification", payload as any);
+      if (enableToasts) {
+        const title = payload.notification?.title ?? payload.title ?? "Notification received";
+        toast("New notification", {
+          description: title,
+        });
+      }
+      options.onNotification?.(payload);
+    };
+
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("connect_error", onConnectError);
@@ -141,6 +155,7 @@ export function useRealtimeEvents(options: UseRealtimeEventsOptions = {}) {
     socket.on("payment_completed", onPaymentCompleted);
     socket.on("nft_minted", onNftMinted);
     socket.on("new_message", onNewMessage);
+    socket.on("notification", onNotification);
 
     return () => {
       try {
@@ -157,6 +172,7 @@ export function useRealtimeEvents(options: UseRealtimeEventsOptions = {}) {
         socket.off("payment_completed", onPaymentCompleted);
         socket.off("nft_minted", onNftMinted);
         socket.off("new_message", onNewMessage);
+        socket.off("notification", onNotification);
 
         socket.io.off("reconnect_attempt");
         socket.io.off("reconnect");
