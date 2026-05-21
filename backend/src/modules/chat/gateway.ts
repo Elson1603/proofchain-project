@@ -6,6 +6,7 @@ import { AppError, isAppError } from '../../utils/errors'
 import { messagingService } from './service'
 import { MessagingBroadcastEvent, MessagingBroadcastPayload, messagingEvents } from './sockets/events'
 import { projectRoom, userRoom } from './utils/rooms'
+import { nftEvents, type NftBroadcastEvent, type NftBroadcastPayload } from '../nft/events'
 
 type Ack = (payload: unknown) => void
 type AuthenticatedSocket = Socket & {
@@ -19,6 +20,7 @@ const SOCKET_RATE_LIMIT = Number(process.env.SOCKET_MESSAGE_RATE_LIMIT ?? 20)
 
 let io: Server | null = null
 let busHandlers: Array<{ event: MessagingBroadcastEvent; handler: (payload: MessagingBroadcastPayload) => void }> = []
+let nftBusHandlers: Array<{ event: NftBroadcastEvent; handler: (payload: NftBroadcastPayload) => void }> = []
 const socketMessageBuckets = new Map<string, number[]>()
 
 function getAllowedOrigins() {
@@ -298,16 +300,74 @@ function bindBroadcasts(server: Server) {
   busHandlers = handlers
 }
 
+function bindNftBroadcasts(server: Server) {
+  const handlers: Array<{ event: NftBroadcastEvent; handler: (payload: NftBroadcastPayload) => void }> = [
+    {
+      event: 'nft_mint_started',
+      handler: (payload) => {
+        if (typeof payload.userId === 'string') {
+          server.to(userRoom(payload.userId)).emit('nft_mint_started', payload)
+        }
+      },
+    },
+    {
+      event: 'nft_minted',
+      handler: (payload) => {
+        if (typeof payload.userId === 'string') {
+          server.to(userRoom(payload.userId)).emit('nft_minted', payload)
+        }
+
+        if (typeof payload.projectId === 'string') {
+          server.to(projectRoom(payload.projectId)).emit('nft_minted', payload)
+        }
+      },
+    },
+    {
+      event: 'nft_failed',
+      handler: (payload) => {
+        if (typeof payload.userId === 'string') {
+          server.to(userRoom(payload.userId)).emit('nft_failed', payload)
+        }
+      },
+    },
+    {
+      event: 'certificate_verified',
+      handler: (payload) => {
+        if (typeof payload.userId === 'string') {
+          server.to(userRoom(payload.userId)).emit('certificate_verified', payload)
+        }
+
+        if (typeof payload.projectId === 'string') {
+          server.to(projectRoom(payload.projectId)).emit('certificate_verified', payload)
+        }
+      },
+    },
+  ]
+
+  for (const { event, handler } of handlers) {
+    nftEvents.on(event, handler)
+  }
+
+  nftBusHandlers = handlers
+}
+
 function unbindBroadcasts() {
   for (const { event, handler } of busHandlers) {
     messagingEvents.off(event, handler)
   }
 
   busHandlers = []
+
+  for (const { event, handler } of nftBusHandlers) {
+    nftEvents.off(event, handler)
+  }
+
+  nftBusHandlers = []
 }
 
 export function initializeMessagingGateway(httpServer: HttpServer) {
   if (io) {
+  bindNftBroadcasts(io)
     return io
   }
 

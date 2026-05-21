@@ -23,6 +23,7 @@ import { Route as FreelancerEarningsRouteImport } from './routes/freelancer.earn
 import { Route as FreelancerDashboardRouteImport } from './routes/freelancer.dashboard'
 import { Route as ClientDashboardRouteImport } from './routes/client.dashboard'
 import { Route as ClientApprovalWorkflowRouteImport } from './routes/client.approval-workflow'
+import { Route as CertificateTokenIdRouteImport } from './routes/certificate.$tokenId'
 import { Route as ProjectsIdChatRouteImport } from './routes/projects.$id.chat'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -96,6 +97,11 @@ const ClientApprovalWorkflowRoute = ClientApprovalWorkflowRouteImport.update({
   path: '/client/approval-workflow',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CertificateTokenIdRoute = CertificateTokenIdRouteImport.update({
+  id: '/certificate/$tokenId',
+  path: '/certificate/$tokenId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsIdChatRoute = ProjectsIdChatRouteImport.update({
   id: '/projects/$id/chat',
   path: '/projects/$id/chat',
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/messages': typeof MessagesRoute
   '/project-details': typeof ProjectDetailsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/certificate/$tokenId': typeof CertificateTokenIdRoute
   '/client/approval-workflow': typeof ClientApprovalWorkflowRoute
   '/client/dashboard': typeof ClientDashboardRoute
   '/freelancer/dashboard': typeof FreelancerDashboardRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/messages': typeof MessagesRoute
   '/project-details': typeof ProjectDetailsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/certificate/$tokenId': typeof CertificateTokenIdRoute
   '/client/approval-workflow': typeof ClientApprovalWorkflowRoute
   '/client/dashboard': typeof ClientDashboardRoute
   '/freelancer/dashboard': typeof FreelancerDashboardRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/messages': typeof MessagesRoute
   '/project-details': typeof ProjectDetailsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/certificate/$tokenId': typeof CertificateTokenIdRoute
   '/client/approval-workflow': typeof ClientApprovalWorkflowRoute
   '/client/dashboard': typeof ClientDashboardRoute
   '/freelancer/dashboard': typeof FreelancerDashboardRoute
@@ -163,6 +172,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/project-details'
     | '/sitemap.xml'
+    | '/certificate/$tokenId'
     | '/client/approval-workflow'
     | '/client/dashboard'
     | '/freelancer/dashboard'
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/project-details'
     | '/sitemap.xml'
+    | '/certificate/$tokenId'
     | '/client/approval-workflow'
     | '/client/dashboard'
     | '/freelancer/dashboard'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/messages'
     | '/project-details'
     | '/sitemap.xml'
+    | '/certificate/$tokenId'
     | '/client/approval-workflow'
     | '/client/dashboard'
     | '/freelancer/dashboard'
@@ -215,6 +227,7 @@ export interface RootRouteChildren {
   MessagesRoute: typeof MessagesRoute
   ProjectDetailsRoute: typeof ProjectDetailsRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  CertificateTokenIdRoute: typeof CertificateTokenIdRoute
   ClientApprovalWorkflowRoute: typeof ClientApprovalWorkflowRoute
   ClientDashboardRoute: typeof ClientDashboardRoute
   FreelancerDashboardRoute: typeof FreelancerDashboardRoute
@@ -326,6 +339,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientApprovalWorkflowRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/certificate/$tokenId': {
+      id: '/certificate/$tokenId'
+      path: '/certificate/$tokenId'
+      fullPath: '/certificate/$tokenId'
+      preLoaderRoute: typeof CertificateTokenIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/$id/chat': {
       id: '/projects/$id/chat'
       path: '/projects/$id/chat'
@@ -343,6 +363,7 @@ const rootRouteChildren: RootRouteChildren = {
   MessagesRoute: MessagesRoute,
   ProjectDetailsRoute: ProjectDetailsRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  CertificateTokenIdRoute: CertificateTokenIdRoute,
   ClientApprovalWorkflowRoute: ClientApprovalWorkflowRoute,
   ClientDashboardRoute: ClientDashboardRoute,
   FreelancerDashboardRoute: FreelancerDashboardRoute,

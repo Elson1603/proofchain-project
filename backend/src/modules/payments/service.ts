@@ -2,6 +2,7 @@ import type { PaymentStatus as PrismaPaymentStatus, Prisma } from '@prisma/clien
 import { JsonRpcProvider, isAddress } from 'ethers'
 import prisma from '../../config/db'
 import { normalizeWalletAddress } from '../auth/utils'
+import { nftService } from '../nft/service'
 import {
   PAYMENT_ACTIONS,
   PAYMENT_STATUSES,
@@ -223,6 +224,10 @@ async function syncTransactionStatus(transaction: {
           failureReason: null,
         },
       })
+
+        void nftService.mintFromPayment(transaction.paymentId).catch((error) => {
+          console.error('Failed to mint ProofChain certificate', error)
+        })
     }
 
     if (updatedStatus === 'failed') {

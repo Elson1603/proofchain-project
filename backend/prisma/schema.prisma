@@ -33,6 +33,7 @@ model User {
   notifications      Notification[]
   paymentsAsPayee    Payment[]         @relation("PaymentPayee")
   paymentsAsPayer    Payment[]         @relation("PaymentPayer")
+  nftCertificates    NftCertificate[]
   freelancerProjects Project[]         @relation("FreelancerProjects")
   invitedProjects    Project[]         @relation("InvitedProjects")
   projects           Project[]         @relation("OwnerProjects")
@@ -87,6 +88,7 @@ model Project {
   conversation        Conversation?
   milestones          Milestone[]
   payments            Payment[]
+  nftCertificates     NftCertificate[]
   freelancer          User?         @relation("FreelancerProjects", fields: [freelancerId], references: [id])
   invitedFreelancer   User?         @relation("InvitedProjects", fields: [invitedFreelancerId], references: [id])
   owner               User          @relation("OwnerProjects", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -172,6 +174,7 @@ model Payment {
   payer         User          @relation("PaymentPayer", fields: [payerId], references: [id])
   project       Project       @relation(fields: [projectId], references: [id])
   submission    Submission?   @relation(fields: [submissionId], references: [id], onDelete: Restrict)
+  nftCertificate NftCertificate?
   transactions  Transaction[]
 
   @@index([projectId, status, createdAt])
@@ -206,9 +209,40 @@ model Transaction {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   payment          Payment?          @relation(fields: [paymentId], references: [id])
+  nftCertificate   NftCertificate?   @relation(fields: [nftCertificateId], references: [id], onDelete: SetNull)
 
   @@index([paymentId, createdAt])
   @@index([status, createdAt])
+}
+
+model NftCertificate {
+  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String               @db.Uuid
+  projectId         String               @db.Uuid
+  paymentId         String?              @unique @db.Uuid
+  freelancerWallet  String
+  tokenId           Int                  @unique
+  metadataURI       String
+  metadata          Json
+  transactionHash   String?              @unique
+  blockNumber       Int?
+  gasUsed           Float?
+  certificateStatus NftCertificateStatus @default(pending)
+  mintedAt          DateTime?
+  verifiedAt        DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project           Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  payment           Payment?             @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  transactions      Transaction[]
+
+  @@unique([projectId])
+  @@index([userId])
+  @@index([projectId])
+  @@index([freelancerWallet])
+  @@index([certificateStatus, createdAt])
+  @@index([transactionHash])
 }
 
 model Conversation {
@@ -338,4 +372,13 @@ enum TransactionType {
   refund
   certificate_mint
   certificate_revoke
+}
+
+enum NftCertificateStatus {
+  pending
+  minting
+  minted
+  verified
+  failed
+  revoked
 }

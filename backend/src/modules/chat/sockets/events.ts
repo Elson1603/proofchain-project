@@ -12,7 +12,7 @@ export type MessagingBroadcastEvent =
   | 'notification_created'
 
 export type MessagingBroadcastPayload = {
-  projectId: string
+  projectId?: string
   [key: string]: unknown
 }
 
