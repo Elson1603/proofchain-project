@@ -28,6 +28,10 @@ export function emitPaymentCompleted(payload: PaymentCompletedPayload) {
 }
 
 export function emitNFTMinted(payload: NftMintedPayload) {
+  if (!payload.projectId) {
+    return
+  }
+
   emitToProject(payload.projectId, platformEvents.nft_minted, payload)
 }
 

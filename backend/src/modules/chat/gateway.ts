@@ -1,5 +1,5 @@
 import type { Server as HttpServer } from 'http'
-import type { SocketAck, SocketErrorResponse, SocketSuccessResponse } from '../../socket/types'
+import type { NotificationPayload, SocketAck, SocketErrorResponse, SocketSuccessResponse } from '../../socket/types'
 import type { TypedServer, TypedSocket } from '../../socket/handlers'
 import { projectRoom, userRoom } from '../../socket/handlers'
 import { closeSocket, initializeSocket } from '../../socket/socket'
@@ -211,7 +211,7 @@ function bindBroadcasts(server: TypedServer) {
       event: 'notification_created',
       handler: (payload) => {
         if (typeof payload.userId === 'string') {
-          server.to(userRoom(payload.userId)).emit('notification', payload)
+          server.to(userRoom(payload.userId)).emit('notification', payload as NotificationPayload)
         }
       },
     },

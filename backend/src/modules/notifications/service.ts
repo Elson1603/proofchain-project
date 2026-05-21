@@ -1,6 +1,7 @@
 import axios from 'axios'
 import prisma from '../../config/db'
 import { emitToUser } from '../../socket/socket'
+import type { NotificationPayload } from '../../socket/types'
 import { AppError } from '../../utils/errors'
 import type { NotificationType } from './types'
 
@@ -128,7 +129,7 @@ async function sendNotificationEmail(userId: string, notification: { title: stri
   })
 }
 
-function safeEmitNotification(userId: string, payload: Record<string, unknown>) {
+function safeEmitNotification(userId: string, payload: NotificationPayload) {
   try {
     emitToUser(userId, 'notification', payload)
   } catch (error) {

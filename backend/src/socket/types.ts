@@ -41,16 +41,22 @@ export type PaymentCompletedPayload = {
   meta?: Record<string, unknown>
 }
 
-export type NftMintedPayload = {
-  certificateId: string
-  projectId: string
-  recipientId: string
-  tokenId?: string
+export type NftBroadcastPayload = {
+  userId?: string
+  recipientId?: string
+  projectId?: string
+  paymentId?: string
+  certificateId?: string
+  tokenId?: string | number
   contractAddress?: string
+  wallet?: string
   txHash?: string
   mintedAt?: string
+  error?: string
   meta?: Record<string, unknown>
 }
+
+export type NftMintedPayload = NftBroadcastPayload
 
 export type NewMessagePayload = {
   projectId: string
@@ -91,7 +97,10 @@ export interface ServerToClientEvents {
   submission_uploaded: (payload: SubmissionUploadedPayload) => void
   project_updated: (payload: ProjectUpdatedPayload) => void
   payment_completed: (payload: PaymentCompletedPayload) => void
-  nft_minted: (payload: NftMintedPayload) => void
+  nft_mint_started: (payload: NftBroadcastPayload) => void
+  nft_minted: (payload: NftBroadcastPayload) => void
+  nft_failed: (payload: NftBroadcastPayload) => void
+  certificate_verified: (payload: NftBroadcastPayload) => void
   new_message: (payload: NewMessagePayload) => void
 
   // Chat module (kept loose so chat can evolve without retyping everything here)
