@@ -216,6 +216,51 @@ model Transaction {
   @@index([status, createdAt])
 }
 
+model BlockchainIndexedEvent {
+  id               String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chainId          Int
+  contractAddress  String
+  category         BlockchainEventCategory
+  eventName        String
+  txHash           String
+  logIndex         Int
+  blockNumber      Int
+  blockHash        String?
+  transactionIndex Int?
+  removed          Boolean                         @default(false)
+  args             Json                            @default("{}")
+  rawLog           Json                            @default("{}")
+  processingStatus BlockchainEventProcessingStatus @default(processed)
+  processingError  String?
+  paymentId        String?                         @db.Uuid
+  transactionId    String?                         @db.Uuid
+  nftCertificateId String?                         @db.Uuid
+  indexedAt        DateTime                        @default(now())
+  processedAt      DateTime?
+  createdAt        DateTime                        @default(now())
+  updatedAt        DateTime                        @updatedAt
+
+  @@unique([chainId, txHash, logIndex])
+  @@index([category, eventName, blockNumber])
+  @@index([contractAddress, blockNumber])
+  @@index([paymentId])
+  @@index([transactionId])
+  @@index([nftCertificateId])
+}
+
+model BlockchainIndexerCursor {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chainId         Int
+  source          String
+  contractAddress String
+  lastBlockNumber Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([chainId, source, contractAddress])
+  @@index([source])
+}
+
 model NftCertificate {
   id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId            String               @db.Uuid
@@ -373,6 +418,19 @@ enum TransactionType {
   refund
   certificate_mint
   certificate_revoke
+}
+
+enum BlockchainEventCategory {
+  ESCROW
+  PAYMENT
+  NFT_MINT
+  UGF_EXECUTION
+}
+
+enum BlockchainEventProcessingStatus {
+  processed
+  failed
+  skipped
 }
 
 enum NftCertificateStatus {

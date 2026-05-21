@@ -11,6 +11,7 @@ import submissionsRoutes from './modules/submissions/routes'
 import paymentsRoutes from './modules/payments/routes'
 import nftRoutes from './modules/nft/routes'
 import notificationsRoutes from './modules/notifications/routes'
+import blockchainIndexerRoutes from './modules/blockchain-indexer/routes'
 import { attachmentsRouter, conversationsRouter, messagesRouter } from './modules/chat/routes'
 import { isAppError } from './utils/errors'
 
@@ -39,6 +40,7 @@ export function createApp() {
   app.use('/api/payments', paymentsRoutes)
   app.use('/api/nft', nftRoutes)
   app.use('/api/notifications', notificationsRoutes)
+  app.use('/api/indexer', blockchainIndexerRoutes)
   app.use('/api/messages', messagesRouter)
   app.use('/api/conversations', conversationsRouter)
   app.use('/api/attachments', attachmentsRouter)

@@ -85,11 +85,41 @@ This backend folder contains a production-ready PostgreSQL foundation for the Pr
 - `payments`: escrow deposits, releases, refunds, and fee records.
 - `nft_certificates`: soulbound proof-of-work certificate records.
 - `transactions`: blockchain or relayer execution log.
+- `blockchain_indexed_events`: normalized escrow, payment, NFT mint, and UGF execution events.
+- `blockchain_indexer_cursors`: per-contract block cursors for resumable indexing.
 - `notifications`: user-facing activity feed and unread counts.
 - `chats`, `chat_participants`, `chat_messages`: project communication.
 - `disputes`: formal issue tracking for projects, milestones, submissions, and payments.
 
 For a deeper table-by-table rationale, read `db/README.md`.
+
+## Blockchain indexer setup
+
+The backend starts the blockchain indexer automatically with the API server when `BLOCKCHAIN_INDEXER_ENABLED` is not `false`.
+
+Required external setup:
+
+- `BASE_SEPOLIA_RPC_URL` or `RPC_URL`: RPC endpoint for the target chain.
+- `CHAIN_ID`: chain id used for indexed event rows, default `84532`.
+- `ESCROW_CONTRACT_ADDRESS`: escrow contract to index for project, deposit, approval, release, and dispute events.
+- `PROOFCHAIN_CERTIFICATE_CONTRACT_ADDRESS`: certificate contract to index for `CertificateMinted`.
+- `UGF_RELAYER_ADDRESS`: optional relayer/paymaster contract address if you have one. Without this, UGF executions are still indexed from local `Transaction.txHash` receipts.
+- `UGF_EXECUTION_ABI_JSON`: optional JSON ABI for the UGF relayer. Leave empty to use the built-in common execution event signatures.
+
+Useful endpoints:
+
+```text
+GET  /api/indexer/status
+POST /api/indexer/run
+GET  /api/indexer/events?category=PAYMENT&limit=50
+```
+
+Run the database migration before starting the deployed backend:
+
+```powershell
+npx prisma migrate deploy
+npx prisma generate
+```
 
 ## Migration workflow
 
