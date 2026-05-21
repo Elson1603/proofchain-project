@@ -17,6 +17,8 @@ type CreateNotificationInput = {
   title: string
   message: string
   type?: NotificationType
+  channels?: Array<'in_app' | 'email'>
+  awaitEmail?: boolean
 }
 
 const DEFAULT_PAGE_SIZE = 20
@@ -55,7 +57,7 @@ function formatSender() {
   return RESEND_FROM_NAME ? `${RESEND_FROM_NAME} <${RESEND_FROM_EMAIL}>` : RESEND_FROM_EMAIL
 }
 
-async function sendEmail(payload: { to: string; subject: string; html: string; text: string }) {
+async function sendEmail(payload: { to: string; subject: string; html: string; text: string }, options: { throwOnError?: boolean } = {}) {
   if (!canSendEmail()) {
     return false
   }
@@ -80,6 +82,9 @@ async function sendEmail(payload: { to: string; subject: string; html: string; t
     return true
   } catch (error) {
     console.error('Failed to send notification email', error)
+    if (options.throwOnError) {
+      throw error
+    }
     return false
   }
 }
@@ -104,7 +109,11 @@ function renderEmail(notification: { title: string; message: string; createdAt: 
   return { html, text }
 }
 
-async function sendNotificationEmail(userId: string, notification: { title: string; message: string; createdAt: Date }) {
+async function sendNotificationEmail(
+  userId: string,
+  notification: { title: string; message: string; createdAt: Date },
+  options: { throwOnError?: boolean } = {},
+) {
   if (!canSendEmail()) {
     return
   }
@@ -126,7 +135,7 @@ async function sendNotificationEmail(userId: string, notification: { title: stri
     subject: notification.title,
     html,
     text,
-  })
+  }, options)
 }
 
 function safeEmitNotification(userId: string, payload: NotificationPayload) {
@@ -138,6 +147,7 @@ function safeEmitNotification(userId: string, payload: NotificationPayload) {
 }
 
 async function notifyUser(input: CreateNotificationInput) {
+  const channels = input.channels ?? ['in_app', 'email']
   const notification = await prisma.notification.create({
     data: {
       userId: input.userId,
@@ -153,9 +163,15 @@ async function notifyUser(input: CreateNotificationInput) {
     notification,
   })
 
-  void sendNotificationEmail(input.userId, notification).catch((error) => {
-    console.error('Notification email failed', error)
-  })
+  if (channels.includes('email')) {
+    if (input.awaitEmail) {
+      await sendNotificationEmail(input.userId, notification, { throwOnError: true })
+    } else {
+      void sendNotificationEmail(input.userId, notification).catch((error) => {
+        console.error('Notification email failed', error)
+      })
+    }
+  }
 
   return notification
 }

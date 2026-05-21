@@ -1,6 +1,8 @@
 export const NOTIFICATION_TYPES = [
   'system',
+  'submission_uploaded',
   'work_submitted',
+  'payment_completed',
   'payment_released',
   'nft_minted',
   'project_deadline_reminder',

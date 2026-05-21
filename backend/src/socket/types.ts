@@ -41,6 +41,18 @@ export type PaymentCompletedPayload = {
   meta?: Record<string, unknown>
 }
 
+export type TransactionStatusUpdatedPayload = {
+  transactionId: string
+  projectId?: string | null
+  paymentId?: string | null
+  txHash?: string | null
+  status: 'pending' | 'confirmed' | 'failed'
+  blockNumber?: number | null
+  gasUsed?: number | null
+  updatedAt?: string
+  meta?: Record<string, unknown>
+}
+
 export type NftBroadcastPayload = {
   userId?: string
   recipientId?: string
@@ -88,6 +100,7 @@ export type PlatformBroadcastEvent =
   | 'submission_uploaded'
   | 'project_updated'
   | 'payment_completed'
+  | 'transaction_status_updated'
   | 'nft_minted'
   | 'new_message'
 
@@ -97,6 +110,7 @@ export interface ServerToClientEvents {
   submission_uploaded: (payload: SubmissionUploadedPayload) => void
   project_updated: (payload: ProjectUpdatedPayload) => void
   payment_completed: (payload: PaymentCompletedPayload) => void
+  transaction_status_updated: (payload: TransactionStatusUpdatedPayload) => void
   nft_mint_started: (payload: NftBroadcastPayload) => void
   nft_minted: (payload: NftBroadcastPayload) => void
   nft_failed: (payload: NftBroadcastPayload) => void

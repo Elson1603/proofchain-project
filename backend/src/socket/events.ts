@@ -4,6 +4,7 @@ import type {
   PaymentCompletedPayload,
   ProjectUpdatedPayload,
   SubmissionUploadedPayload,
+  TransactionStatusUpdatedPayload,
 } from './types'
 import { broadcastEvent, emitToProject } from './socket'
 
@@ -11,6 +12,7 @@ export const platformEvents = {
   submission_uploaded: 'submission_uploaded',
   project_updated: 'project_updated',
   payment_completed: 'payment_completed',
+  transaction_status_updated: 'transaction_status_updated',
   nft_minted: 'nft_minted',
   new_message: 'new_message',
 } as const
@@ -25,6 +27,14 @@ export function emitProjectUpdated(payload: ProjectUpdatedPayload) {
 
 export function emitPaymentCompleted(payload: PaymentCompletedPayload) {
   emitToProject(payload.projectId, platformEvents.payment_completed, payload)
+}
+
+export function emitTransactionStatusUpdated(payload: TransactionStatusUpdatedPayload) {
+  if (!payload.projectId) {
+    return
+  }
+
+  emitToProject(payload.projectId, platformEvents.transaction_status_updated, payload)
 }
 
 export function emitNFTMinted(payload: NftMintedPayload) {
@@ -52,6 +62,10 @@ export function broadcastProjectUpdated(payload: ProjectUpdatedPayload) {
 
 export function broadcastPaymentCompleted(payload: PaymentCompletedPayload) {
   broadcastEvent(platformEvents.payment_completed, payload)
+}
+
+export function broadcastTransactionStatusUpdated(payload: TransactionStatusUpdatedPayload) {
+  broadcastEvent(platformEvents.transaction_status_updated, payload)
 }
 
 export function broadcastNftMinted(payload: NftMintedPayload) {
