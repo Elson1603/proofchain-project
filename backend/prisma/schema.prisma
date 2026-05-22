@@ -155,6 +155,8 @@ model Notification {
   type      String   @default("system")
   title     String
   message   String
+  actionUrl String?
+  metadata  Json     @default("{}")
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   userId    String   @db.Uuid
@@ -162,6 +164,7 @@ model Notification {
 
   @@index([userId])
   @@index([isRead])
+  @@index([type, createdAt])
 }
 
 model Payment {

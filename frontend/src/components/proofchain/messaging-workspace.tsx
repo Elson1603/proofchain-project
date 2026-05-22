@@ -39,6 +39,7 @@ import { ThemeToggle } from "@/components/proofchain/theme-toggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useNotifications } from "@/hooks/use-notifications";
+import { openNotification } from "@/lib/notification-routing";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -494,7 +495,7 @@ function Sidebar({
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => void markRead(item.id)}
+                    onClick={() => void openNotification(item, markRead, () => setNotificationsOpen(false))}
                     className="w-full rounded-lg border border-border/70 bg-secondary/35 p-3 text-left transition-colors hover:border-primary/40 hover:bg-secondary/60"
                   >
                     <p className="text-sm font-medium text-foreground">{item.title}</p>

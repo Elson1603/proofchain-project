@@ -162,12 +162,16 @@ async function notifyPaymentStatusChange(params: { paymentId: string; status: Tr
         projectTitle,
         amount: amountLabel,
         txHash: params.txHash,
+        projectId: payment.projectId,
+        paymentId: payment.id,
       }),
       notificationsService.sendPaymentReleasedNotification({
         userId: payment.payerId,
         projectTitle,
         amount: amountLabel,
         txHash: params.txHash,
+        projectId: payment.projectId,
+        paymentId: payment.id,
       }),
     ])
 
@@ -194,12 +198,18 @@ async function notifyPaymentStatusChange(params: { paymentId: string; status: Tr
         projectTitle,
         status: 'failed',
         amount: amountLabel,
+        projectId: payment.projectId,
+        paymentId: payment.id,
+        txHash: params.txHash,
       }),
       notificationsService.sendTransactionAlert({
         userId: payment.payeeId,
         projectTitle,
         status: 'failed',
         amount: amountLabel,
+        projectId: payment.projectId,
+        paymentId: payment.id,
+        txHash: params.txHash,
       }),
     ])
   }

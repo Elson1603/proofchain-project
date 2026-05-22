@@ -392,7 +392,14 @@ export const messagingRepository = {
     )
   },
 
-  createNotifications(notifications: Array<{ userId: string; title: string; message: string; type?: string }>) {
+  createNotifications(notifications: Array<{
+    userId: string
+    title: string
+    message: string
+    type?: string
+    actionUrl?: string
+    metadata?: Prisma.InputJsonValue
+  }>) {
     if (!notifications.length) {
       return Promise.resolve([])
     }

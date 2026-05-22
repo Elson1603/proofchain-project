@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CreateProjectDialog } from "@/components/proofchain/create-project-dialog";
 import { DashboardShell } from "@/components/proofchain/dashboard-shell";
 import { useNotifications } from "@/hooks/use-notifications";
+import { openNotification } from "@/lib/notification-routing";
 import {
   fetchCurrentUser,
   fetchProjects,
@@ -170,7 +171,7 @@ function ClientDashboardPage() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => void markRead(item.id)}
+                onClick={() => void openNotification(item, markRead)}
                 className={cn(
                   "surface-panel w-full rounded-lg p-3 text-left text-sm transition",
                   item.isRead ? "text-muted-foreground" : "border border-primary/30 text-foreground",

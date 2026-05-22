@@ -66,6 +66,8 @@ export const notificationsController = {
           title: String(req.body.title ?? ''),
           message: String(req.body.message ?? ''),
           type: typeof req.body.type === 'string' ? req.body.type : undefined,
+          actionUrl: typeof req.body.actionUrl === 'string' ? req.body.actionUrl : undefined,
+          metadata: req.body.metadata && typeof req.body.metadata === 'object' ? req.body.metadata : undefined,
         }),
       )
     } catch (error) {

@@ -22,6 +22,8 @@ const createSchema = z.object({
     title: z.string().trim().min(1, 'Title is required'),
     message: z.string().trim().min(1, 'Message is required'),
     type: z.enum(NOTIFICATION_TYPES).optional(),
+    actionUrl: z.string().trim().startsWith('/').refine((value) => !value.startsWith('//'), 'Action URL must be a same-origin path').optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
   }),
 })
 

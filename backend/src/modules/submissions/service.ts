@@ -151,6 +151,9 @@ export const submissionsService = {
           userId: project.ownerId,
           projectTitle: project.title,
           milestoneTitle: enriched?.milestone?.title,
+          projectId: project.id,
+          milestoneId: enriched?.milestoneId,
+          submissionId: submission.id,
         })
 
         emitSubmissionUploaded({
@@ -220,6 +223,9 @@ export const submissionsService = {
           userId: project.ownerId,
           projectTitle: project.title,
           milestoneTitle: enriched?.milestone?.title,
+          projectId: project.id,
+          milestoneId: enriched?.milestoneId,
+          submissionId: submission.id,
         })
 
         emitSubmissionUploaded({

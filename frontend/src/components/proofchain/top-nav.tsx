@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/proofchain/theme-toggle";
 import { useNotifications } from "@/hooks/use-notifications";
+import { openNotification } from "@/lib/notification-routing";
 import { shortenWalletAddress, useWalletAddress } from "@/hooks/use-wallet-address";
 
 const links = [
@@ -157,7 +158,7 @@ export function ProofChainTopNav() {
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => void markRead(item.id)}
+                      onClick={() => void openNotification(item, markRead, () => setNotificationOpen(false))}
                       className="w-full rounded-lg border border-border/70 bg-secondary/35 p-3 text-left transition-colors hover:border-primary/40 hover:bg-secondary/60"
                     >
                       <p className="text-sm font-medium text-foreground">{item.title}</p>

@@ -76,12 +76,14 @@ async function findExistingCertificate(paymentId?: string, projectId?: string) {
   return null
 }
 
-function publishNotification(userId: string, title: string, message: string, projectTitle?: string, tokenId?: number) {
+function publishNotification(userId: string, title: string, message: string, projectTitle?: string, tokenId?: number, projectId?: string, certificateId?: string) {
   void notificationsService
     .sendNftMintedNotification({
       userId,
       projectTitle: projectTitle ?? title,
       tokenId: tokenId ?? null,
+      projectId,
+      certificateId,
     })
     .catch((error) => {
       console.error('Failed to send NFT notification', error)
@@ -268,6 +270,8 @@ async function mintCertificateWithContext(context: MintContext, input: MintCerti
       `ProofChain certificate #${certificate.tokenId} was minted for ${context.project.title}`,
       context.project.title,
       certificate.tokenId,
+      context.project.id,
+      certificate.id,
     )
 
     emit('nft_minted', {

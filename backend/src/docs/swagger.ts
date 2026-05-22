@@ -174,14 +174,15 @@ export const swaggerOptions: Options = {
         },
         Notification: {
           type: 'object',
-          required: ['id', 'userId', 'type', 'title', 'message', 'read'],
+          required: ['id', 'userId', 'type', 'title', 'message', 'isRead'],
           properties: {
             id: { type: 'string', format: 'uuid' },
             userId: { type: 'string', format: 'uuid' },
             type: { type: 'string', example: 'payment_completed' },
             title: { type: 'string', example: 'Payment completed' },
             message: { type: 'string', example: 'A payment was completed for your project.' },
-            read: { type: 'boolean', example: false },
+            actionUrl: { type: 'string', nullable: true, example: '/projects/123/chat' },
+            isRead: { type: 'boolean', example: false },
             metadata: { type: 'object', additionalProperties: true },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' },

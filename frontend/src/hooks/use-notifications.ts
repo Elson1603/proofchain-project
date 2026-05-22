@@ -15,7 +15,19 @@ export type UseNotificationsOptions = {
 
 function normalizeNotification(payload: NotificationPayload | ApiNotification) {
   if ("notification" in payload) {
-    return payload.notification;
+    const projectId = typeof (payload as NotificationPayload & { projectId?: unknown }).projectId === "string"
+      ? (payload as NotificationPayload & { projectId?: string }).projectId
+      : undefined;
+
+    return payload.notification && projectId
+      ? {
+          ...payload.notification,
+          metadata: {
+            ...(payload.notification.metadata ?? {}),
+            projectId,
+          },
+        }
+      : payload.notification;
   }
   return payload;
 }

@@ -64,6 +64,8 @@ export type NotificationPayload = {
     title: string;
     message: string;
     type?: string;
+    actionUrl?: string | null;
+    metadata?: Record<string, unknown> | null;
     isRead: boolean;
     createdAt: string;
   };

@@ -1,4 +1,5 @@
 import type { Job, JobsOptions } from 'bullmq'
+import type { Prisma } from '@prisma/client'
 import { notificationsService } from '../modules/notifications/service'
 import { notificationQueue } from '../queues/notification.queue'
 
@@ -93,6 +94,31 @@ function renderNotification(payload: NotificationJobPayload) {
   }
 }
 
+function notificationActionUrl(payload: NotificationJobPayload) {
+  const projectId = compactLabel(payload.metadata?.projectId)
+
+  if (payload.type === 'submission_uploaded') {
+    return projectId ? `/client/approval-workflow?projectId=${encodeURIComponent(projectId)}` : '/client/approval-workflow'
+  }
+
+  if (payload.type === 'payment_completed') {
+    return projectId ? `/project-details?projectId=${encodeURIComponent(projectId)}` : '/project-details'
+  }
+
+  const tokenId = payload.metadata?.tokenId
+  return tokenId ? `/certificate/${encodeURIComponent(String(tokenId))}` : '/freelancer/nft-certificates'
+}
+
+function notificationMetadata(metadata?: NotificationJobPayload['metadata']) {
+  if (!metadata) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([, value]) => typeof value !== 'undefined' && value !== null),
+  ) as Prisma.InputJsonObject
+}
+
 export async function addNotificationJob(payload: NotificationJobPayload, options: AddJobOptions = {}) {
   if (!payload.userId || !payload.type) {
     throw new Error('Notification job requires userId and type')
@@ -119,6 +145,8 @@ export async function processNotificationJob(job: Job<NotificationJobPayload>) {
     title: notificationContent.title,
     message: notificationContent.message,
     type: job.data.type,
+    actionUrl: notificationActionUrl(job.data),
+    metadata: notificationMetadata(job.data.metadata),
     channels,
     awaitEmail: channels.includes('email'),
   })

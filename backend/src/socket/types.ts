@@ -89,6 +89,8 @@ export type NotificationPayload = {
     title: string
     message: string
     type?: string
+    actionUrl?: string | null
+    metadata?: unknown
     isRead: boolean
     createdAt: string | Date
   }

@@ -169,6 +169,8 @@ export async function processNFTMintJob(job: Job<NFTMintJobPayload>) {
     userId: user.id,
     projectTitle: project.title,
     tokenId: certificate.tokenId,
+    projectId: project.id,
+    certificateId: certificate.id,
   })
 
   await job.updateProgress(100)

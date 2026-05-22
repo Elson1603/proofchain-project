@@ -30,6 +30,14 @@ type ProjectDetailsWorkspaceProps = {
   navItems: NavItem[];
 };
 
+function projectIdFromLocation() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return new URLSearchParams(window.location.search).get("projectId");
+}
+
 export function ProjectDetailsWorkspace({ mode, navItems }: ProjectDetailsWorkspaceProps) {
   const isClient = mode === "client";
   const isFreelancer = mode === "freelancer";
@@ -73,11 +81,16 @@ export function ProjectDetailsWorkspace({ mode, navItems }: ProjectDetailsWorksp
         setUser(me);
         setProjects(nextProjects);
         setAvailableProjects(nextAvailableProjects);
-        setSelectedProjectId((currentProjectId) =>
-          currentProjectId && nextProjects.some((nextProject) => nextProject.id === currentProjectId)
+        setSelectedProjectId((currentProjectId) => {
+          const linkedProjectId = projectIdFromLocation();
+          if (linkedProjectId && nextProjects.some((nextProject) => nextProject.id === linkedProjectId)) {
+            return linkedProjectId;
+          }
+
+          return currentProjectId && nextProjects.some((nextProject) => nextProject.id === currentProjectId)
             ? currentProjectId
-            : (nextProjects[0]?.id ?? null),
-        );
+            : (nextProjects[0]?.id ?? null);
+        });
         setLoading(false);
       }
     }

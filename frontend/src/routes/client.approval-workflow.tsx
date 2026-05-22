@@ -39,6 +39,14 @@ const clientNav = [
   { label: "Settings", to: "/auth" },
 ];
 
+function projectIdFromLocation() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return new URLSearchParams(window.location.search).get("projectId");
+}
+
 function ApprovalWorkflowPage() {
   const { openUGF, result } = useUGFModal();
   const [user, setUser] = useState<ApiUser | null>(null);
@@ -203,8 +211,27 @@ function ApprovalWorkflowPage() {
       const nextSubmissions = me ? await fetchSubmissions().catch(() => null) : [];
 
       if (!cancelled) {
+        const linkedProjectId = projectIdFromLocation();
+        const filteredSubmissions = (nextSubmissions ?? []).filter((submission) => submission.milestone?.project?.ownerId === me?.id);
+        const linkedIndex = linkedProjectId
+          ? filteredSubmissions.findIndex((submission) => submission.milestone?.project?.id === linkedProjectId)
+          : -1;
+        const linkedSubmission = linkedIndex >= 0 ? filteredSubmissions[linkedIndex] : null;
+        const linkedProject = linkedSubmission?.milestone?.project;
+
         setUser(me);
-        setSubmissions((nextSubmissions ?? []).filter((submission) => submission.milestone?.project?.ownerId === me?.id));
+        setSubmissions(filteredSubmissions);
+        if (linkedSubmission && linkedProject) {
+          setSubmissionId(linkedSubmission.id);
+          setMilestoneId(linkedSubmission.milestoneId);
+          setProjectId(linkedProject.id);
+          setPayerId(linkedProject.ownerId);
+          setPayeeId(linkedSubmission.submittedById);
+          setAmount(String(linkedSubmission.milestone?.amount ?? ""));
+          setMilestoneIndex(String(linkedIndex));
+          setPaymentType("milestone_release");
+          setStatus(`${linkedProject.title ?? "Submission"} selected from notification. Review the escrow fields, then run Approve milestone.`);
+        }
         setSubmissionsLoading(false);
       }
     }

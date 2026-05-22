@@ -61,6 +61,10 @@ async function notifyProjectParticipants(projectId: string, senderId: string, ti
       title,
       message,
       type: 'chat',
+      actionUrl: `/projects/${projectId}/chat`,
+      metadata: {
+        projectId,
+      },
     })),
   )
 

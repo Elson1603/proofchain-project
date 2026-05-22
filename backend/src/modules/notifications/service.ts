@@ -1,4 +1,5 @@
 import axios from 'axios'
+import type { Notification, Prisma } from '@prisma/client'
 import prisma from '../../config/db'
 import { emitToUser } from '../../socket/socket'
 import type { NotificationPayload } from '../../socket/types'
@@ -17,6 +18,8 @@ type CreateNotificationInput = {
   title: string
   message: string
   type?: NotificationType
+  actionUrl?: string | null
+  metadata?: Prisma.InputJsonValue
   channels?: Array<'in_app' | 'email'>
   awaitEmail?: boolean
 }
@@ -36,6 +39,202 @@ const APPROVAL_REMINDER_AFTER_HOURS = Number(process.env.NOTIFICATIONS_APPROVAL_
 const DEADLINE_REMINDER_WINDOW_HOURS = Number(process.env.NOTIFICATIONS_DEADLINE_WINDOW_HOURS ?? 48)
 
 let reminderTimer: NodeJS.Timeout | null = null
+
+function sanitizeActionUrl(actionUrl?: string | null) {
+  if (!actionUrl) {
+    return null
+  }
+
+  const trimmed = actionUrl.trim()
+  if (!trimmed || !trimmed.startsWith('/') || trimmed.startsWith('//')) {
+    return null
+  }
+
+  return trimmed
+}
+
+function notificationMetadata(metadata?: Prisma.InputJsonValue) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(metadata as Record<string, unknown>).filter(([, value]) => typeof value !== 'undefined' && value !== null),
+  ) as Prisma.InputJsonObject
+}
+
+function withProjectQuery(path: string, projectId?: string | null) {
+  if (!projectId) {
+    return path
+  }
+
+  return `${path}?projectId=${encodeURIComponent(projectId)}`
+}
+
+function existingMetadata(metadata: Prisma.JsonValue) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return {}
+  }
+
+  return metadata as Prisma.JsonObject
+}
+
+function notificationWindow(createdAt: Date, seconds = 45) {
+  return {
+    gte: new Date(createdAt.getTime() - seconds * 1000),
+    lte: new Date(createdAt.getTime() + seconds * 1000),
+  }
+}
+
+async function legacyNotificationTarget(notification: Notification) {
+  if (notification.actionUrl) {
+    return notification
+  }
+
+  if (notification.type === 'chat') {
+    const message = await prisma.message.findFirst({
+      where: {
+        senderId: { not: notification.userId },
+        createdAt: notificationWindow(notification.createdAt),
+        conversation: {
+          project: {
+            OR: [
+              { ownerId: notification.userId },
+              { freelancerId: notification.userId },
+              { invitedFreelancerId: notification.userId },
+            ],
+          },
+        },
+      },
+      select: {
+        id: true,
+        conversation: { select: { projectId: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    if (message?.conversation.projectId) {
+      return {
+        ...notification,
+        actionUrl: `/projects/${message.conversation.projectId}/chat`,
+        metadata: {
+          ...existingMetadata(notification.metadata),
+          projectId: message.conversation.projectId,
+          messageId: message.id,
+        },
+      }
+    }
+  }
+
+  if (notification.type === 'work_submitted' || notification.type === 'submission_uploaded') {
+    const submission = await prisma.submission.findFirst({
+      where: {
+        createdAt: notificationWindow(notification.createdAt),
+        milestone: {
+          project: { ownerId: notification.userId },
+        },
+      },
+      select: {
+        id: true,
+        milestoneId: true,
+        milestone: {
+          select: {
+            title: true,
+            project: { select: { id: true, title: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const project = submission?.milestone.project
+    if (project) {
+      return {
+        ...notification,
+        actionUrl: withProjectQuery('/client/approval-workflow', project.id),
+        metadata: {
+          ...existingMetadata(notification.metadata),
+          projectId: project.id,
+          projectTitle: project.title,
+          milestoneId: submission.milestoneId,
+          milestoneTitle: submission.milestone.title,
+          submissionId: submission.id,
+        },
+      }
+    }
+  }
+
+  if (notification.type === 'payment_released' || notification.type === 'payment_completed' || notification.type === 'transaction_alert') {
+    const payment = await prisma.payment.findFirst({
+      where: {
+        updatedAt: notificationWindow(notification.createdAt, 120),
+        OR: [
+          { payerId: notification.userId },
+          { payeeId: notification.userId },
+        ],
+      },
+      select: {
+        id: true,
+        projectId: true,
+        project: { select: { title: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+
+    if (payment) {
+      return {
+        ...notification,
+        actionUrl: withProjectQuery('/project-details', payment.projectId),
+        metadata: {
+          ...existingMetadata(notification.metadata),
+          projectId: payment.projectId,
+          projectTitle: payment.project.title,
+          paymentId: payment.id,
+        },
+      }
+    }
+  }
+
+  if (notification.type === 'nft_minted') {
+    const certificate = await prisma.nftCertificate.findFirst({
+      where: {
+        userId: notification.userId,
+        createdAt: notificationWindow(notification.createdAt, 120),
+      },
+      select: {
+        id: true,
+        projectId: true,
+        tokenId: true,
+        project: { select: { title: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    if (certificate) {
+      return {
+        ...notification,
+        actionUrl: `/certificate/${certificate.tokenId}`,
+        metadata: {
+          ...existingMetadata(notification.metadata),
+          projectId: certificate.projectId,
+          projectTitle: certificate.project.title,
+          certificateId: certificate.id,
+          tokenId: certificate.tokenId,
+        },
+      }
+    }
+  }
+
+  return notification
+}
+
+async function enrichNotificationTargets(notifications: Notification[]) {
+  if (!notifications.some((notification) => !notification.actionUrl)) {
+    return notifications
+  }
+
+  return Promise.all(notifications.map(legacyNotificationTarget))
+}
 
 function clampPageSize(limit?: number) {
   if (!limit || Number.isNaN(limit)) {
@@ -154,6 +353,8 @@ async function notifyUser(input: CreateNotificationInput) {
       title: input.title,
       message: input.message,
       type: input.type ?? 'system',
+      actionUrl: sanitizeActionUrl(input.actionUrl),
+      metadata: notificationMetadata(input.metadata),
     },
   })
 
@@ -324,7 +525,7 @@ export const notificationsService = {
     const limit = clampPageSize(options.limit)
     const offset = Math.max(0, options.offset ?? 0)
 
-    return prisma.notification.findMany({
+    const notifications = await prisma.notification.findMany({
       where: {
         userId: options.userId,
         ...(options.unreadOnly ? { isRead: false } : {}),
@@ -333,6 +534,8 @@ export const notificationsService = {
       take: limit,
       skip: offset,
     })
+
+    return enrichNotificationTargets(notifications)
   },
 
   async unreadCount(userId: string) {
@@ -392,7 +595,14 @@ export const notificationsService = {
     return { id }
   },
 
-  async sendWorkSubmittedNotification(params: { userId: string; projectTitle: string; milestoneTitle?: string }) {
+  async sendWorkSubmittedNotification(params: {
+    userId: string
+    projectTitle: string
+    milestoneTitle?: string
+    projectId?: string
+    milestoneId?: string
+    submissionId?: string
+  }) {
     const milestoneLabel = params.milestoneTitle ? ` (${params.milestoneTitle})` : ''
 
     return notifyUser({
@@ -400,10 +610,25 @@ export const notificationsService = {
       title: 'Work submitted',
       message: `New work submitted for ${params.projectTitle}${milestoneLabel}.`,
       type: 'work_submitted',
+      actionUrl: withProjectQuery('/client/approval-workflow', params.projectId),
+      metadata: {
+        projectId: params.projectId,
+        projectTitle: params.projectTitle,
+        milestoneId: params.milestoneId,
+        milestoneTitle: params.milestoneTitle,
+        submissionId: params.submissionId,
+      },
     })
   },
 
-  async sendPaymentReleasedNotification(params: { userId: string; projectTitle: string; amount: string; txHash?: string | null }) {
+  async sendPaymentReleasedNotification(params: {
+    userId: string
+    projectTitle: string
+    amount: string
+    txHash?: string | null
+    projectId?: string
+    paymentId?: string
+  }) {
     const txLine = params.txHash ? ` Transaction: ${params.txHash.slice(0, 10)}...` : ''
 
     return notifyUser({
@@ -411,26 +636,64 @@ export const notificationsService = {
       title: 'Payment released',
       message: `Payment of ${params.amount} released for ${params.projectTitle}.${txLine}`,
       type: 'payment_released',
+      actionUrl: withProjectQuery('/project-details', params.projectId),
+      metadata: {
+        projectId: params.projectId,
+        projectTitle: params.projectTitle,
+        paymentId: params.paymentId,
+        amount: params.amount,
+        txHash: params.txHash,
+      },
     })
   },
 
-  async sendTransactionAlert(params: { userId: string; projectTitle: string; status: string; amount?: string }) {
+  async sendTransactionAlert(params: {
+    userId: string
+    projectTitle: string
+    status: string
+    amount?: string
+    projectId?: string
+    paymentId?: string
+    txHash?: string | null
+  }) {
     const amountLine = params.amount ? ` for ${params.amount}` : ''
     return notifyUser({
       userId: params.userId,
       title: 'Transaction alert',
       message: `Transaction ${params.status}${amountLine} on ${params.projectTitle}.`,
       type: 'transaction_alert',
+      actionUrl: withProjectQuery('/project-details', params.projectId),
+      metadata: {
+        projectId: params.projectId,
+        projectTitle: params.projectTitle,
+        paymentId: params.paymentId,
+        status: params.status,
+        amount: params.amount,
+        txHash: params.txHash,
+      },
     })
   },
 
-  async sendNftMintedNotification(params: { userId: string; projectTitle: string; tokenId?: string | number | null }) {
+  async sendNftMintedNotification(params: {
+    userId: string
+    projectTitle: string
+    tokenId?: string | number | null
+    projectId?: string
+    certificateId?: string
+  }) {
     const tokenLine = params.tokenId ? ` Token #${params.tokenId}.` : ''
     return notifyUser({
       userId: params.userId,
       title: 'NFT minted',
       message: `Your ProofChain certificate was minted for ${params.projectTitle}.${tokenLine}`,
       type: 'nft_minted',
+      actionUrl: params.tokenId ? `/certificate/${encodeURIComponent(String(params.tokenId))}` : '/freelancer/nft-certificates',
+      metadata: {
+        projectId: params.projectId,
+        projectTitle: params.projectTitle,
+        certificateId: params.certificateId,
+        tokenId: params.tokenId,
+      },
     })
   },
 
