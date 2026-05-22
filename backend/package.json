@@ -6,7 +6,7 @@
 "scripts": {
   "dev": "nodemon --watch src --ext ts --exec tsx src/index.ts",
   "build": "tsc -p tsconfig.json",
-  "start": "node dist/index.js",
+  "start": "node dist/src/index.js",
   "typecheck": "tsc --noEmit -p tsconfig.json",
   "jobs:test": "tsx src/jobs/test-job.example.ts",
   "test": "jest --runInBand"
