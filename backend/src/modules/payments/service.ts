@@ -1,7 +1,7 @@
 import type { PaymentStatus as PrismaPaymentStatus, Prisma } from '@prisma/client'
 import { JsonRpcProvider, isAddress } from 'ethers'
 import prisma from '../../config/db'
-import { emitPaymentCompleted } from '../../socket/events'
+import { emitPaymentCompleted, emitProjectUpdated } from '../../socket/events'
 import { normalizeWalletAddress } from '../auth/utils'
 import { nftService } from '../nft/service'
 import { notificationsService } from '../notifications/service'
@@ -77,10 +77,13 @@ type PaymentMetadata = {
   relayerRequestId?: string
 }
 
+type WorkflowPayment = Awaited<ReturnType<typeof findWorkflowPayment>>
+
 const DEFAULT_CHAIN_ID = Number(process.env.CHAIN_ID ?? 84532)
 const DEFAULT_CURRENCY = process.env.UGF_GAS_CURRENCY || 'mUSD'
 const MAX_POLL_LIMIT = Number(process.env.PAYMENTS_POLL_LIMIT ?? 25)
 const POLL_INTERVAL_MS = Number(process.env.PAYMENTS_POLL_INTERVAL_MS ?? 0)
+const WORKFLOW_RECONCILE_LIMIT = Number(process.env.PAYMENTS_WORKFLOW_RECONCILE_LIMIT ?? 100)
 
 let provider: JsonRpcProvider | null = null
 let poller: NodeJS.Timeout | null = null
@@ -134,6 +137,150 @@ function formatAmount(amount: number, currency?: string) {
   const normalized = Number.isFinite(amount) ? amount : 0
   const label = normalized % 1 === 0 ? normalized.toFixed(0) : normalized.toFixed(2)
   return `${label} ${currency ?? DEFAULT_CURRENCY}`.trim()
+}
+
+function statusRank(status?: string | null) {
+  if (status === 'completed') return 4
+  if (status === 'approved') return 3
+  if (status === 'submitted') return 2
+  if (status === 'in_progress') return 1
+  if (status === 'pending') return 0
+  return -1
+}
+
+function canAdvanceMilestone(status?: string | null) {
+  return ['pending', 'in_progress', 'submitted', 'approved'].includes(status ?? '')
+}
+
+function canAdvanceProject(status?: string | null) {
+  return ['draft', 'open', 'in_progress', 'submitted', 'approved'].includes(status ?? '')
+}
+
+function workflowActionFor(payment: NonNullable<WorkflowPayment>, override?: PaymentAction) {
+  const metadata = parseMetadata(payment.metadata)
+  return override ?? metadata.action
+}
+
+function targetMilestoneStatus(payment: NonNullable<WorkflowPayment>, transactionStatus: TransactionStatus, action?: PaymentAction) {
+  if (payment.type !== 'milestone_release' || !payment.milestoneId) {
+    return null
+  }
+
+  if (transactionStatus === 'failed' || transactionStatus === 'replaced') {
+    return null
+  }
+
+  const resolvedAction = workflowActionFor(payment, action)
+  const released = transactionStatus === 'confirmed' || payment.status === 'released'
+
+  if (resolvedAction === 'release_payment' && released) {
+    return 'completed'
+  }
+
+  if (resolvedAction === 'approve_milestone' || resolvedAction === 'release_payment') {
+    return 'approved'
+  }
+
+  return null
+}
+
+async function findWorkflowPayment(paymentId: string) {
+  return prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: {
+      project: true,
+      milestone: true,
+    },
+  })
+}
+
+export async function applyPaymentWorkflowState(params: {
+  paymentId: string
+  transactionStatus: TransactionStatus
+  action?: PaymentAction
+  txHash?: string | null
+}) {
+  const payment = await findWorkflowPayment(params.paymentId)
+  if (!payment) {
+    return null
+  }
+
+  const nextMilestoneStatus = targetMilestoneStatus(payment, params.transactionStatus, params.action)
+  if (!nextMilestoneStatus || !payment.milestone || !canAdvanceMilestone(payment.milestone.status)) {
+    return payment
+  }
+
+  if (statusRank(payment.milestone.status) >= statusRank(nextMilestoneStatus)) {
+    return payment
+  }
+
+  const updatedMilestone = await prisma.milestone.update({
+    where: { id: payment.milestone.id },
+    data: { status: nextMilestoneStatus },
+  })
+
+  const allMilestones = await prisma.milestone.findMany({
+    where: { projectId: payment.projectId },
+    select: { id: true, status: true },
+  })
+  const allCompleted = allMilestones.every((milestone) =>
+    milestone.id === updatedMilestone.id ? nextMilestoneStatus === 'completed' : milestone.status === 'completed',
+  )
+  const nextProjectStatus = allCompleted ? 'completed' : 'approved'
+
+  let updatedProjectStatus = payment.project.status
+  if (canAdvanceProject(payment.project.status) && statusRank(payment.project.status) < statusRank(nextProjectStatus)) {
+    const updatedProject = await prisma.project.update({
+      where: { id: payment.projectId },
+      data: { status: nextProjectStatus },
+      select: { status: true },
+    })
+    updatedProjectStatus = updatedProject.status
+  }
+
+  if (nextMilestoneStatus === 'approved') {
+    await notificationsService.create({
+      userId: payment.payeeId,
+      title: 'Milestone approved',
+      message: `${payment.milestone.title} was approved for ${payment.project.title}. Payment release is being tracked on-chain.`,
+      type: 'milestone_approved',
+      actionUrl: `/freelancer/projects?projectId=${encodeURIComponent(payment.projectId)}`,
+      metadata: {
+        projectId: payment.projectId,
+        projectTitle: payment.project.title,
+        milestoneId: payment.milestoneId,
+        milestoneTitle: payment.milestone.title,
+        paymentId: payment.id,
+        txHash: params.txHash,
+      },
+    })
+  }
+
+  try {
+    emitProjectUpdated({
+      projectId: payment.projectId,
+      status: updatedProjectStatus,
+      updatedAt: new Date().toISOString(),
+      changes: {
+        milestoneId: payment.milestoneId,
+        milestoneStatus: nextMilestoneStatus,
+        paymentId: payment.id,
+        paymentStatus: payment.status,
+        txHash: params.txHash,
+      },
+    })
+  } catch (error) {
+    console.warn('Socket emit failed for project_updated payment workflow', error)
+  }
+
+  return {
+    ...payment,
+    milestone: updatedMilestone,
+    project: {
+      ...payment.project,
+      status: updatedProjectStatus,
+    },
+  }
 }
 
 async function notifyPaymentStatusChange(params: { paymentId: string; status: TransactionStatus; txHash?: string | null }) {
@@ -312,9 +459,15 @@ async function syncTransactionStatus(transaction: {
         },
       })
 
-        void nftService.mintFromPayment(transaction.paymentId).catch((error) => {
-          console.error('Failed to mint ProofChain certificate', error)
-        })
+      await applyPaymentWorkflowState({
+        paymentId: transaction.paymentId,
+        transactionStatus: updatedStatus,
+        txHash: updated.txHash,
+      })
+
+      void nftService.mintFromPayment(transaction.paymentId).catch((error) => {
+        console.error('Failed to mint ProofChain certificate', error)
+      })
     }
 
     if (updatedStatus === 'failed') {
@@ -339,6 +492,10 @@ async function syncTransactionStatus(transaction: {
 
 export const paymentsService = {
   startPolling() {
+    void paymentsService.reconcileWorkflowStates().catch((error) => {
+      console.error('Failed to reconcile payment workflow states', error)
+    })
+
     if (!POLL_INTERVAL_MS || poller) {
       return
     }
@@ -534,6 +691,13 @@ export const paymentsService = {
       txHash: transaction.txHash,
     })
 
+    await applyPaymentWorkflowState({
+      paymentId: payment.id,
+      transactionStatus,
+      action,
+      txHash: transaction.txHash,
+    })
+
     return {
       payment,
       transaction,
@@ -626,6 +790,12 @@ export const paymentsService = {
       },
     })
 
+    await applyPaymentWorkflowState({
+      paymentId: payment.id,
+      transactionStatus,
+      txHash: retryTransaction.txHash,
+    })
+
     await notifyPaymentStatusChange({
       paymentId: payment.id,
       status: transactionStatus,
@@ -705,6 +875,56 @@ export const paymentsService = {
     return {
       polled: pending.length,
       updated: updates.length,
+    }
+  },
+
+  async reconcileWorkflowStates(limit = WORKFLOW_RECONCILE_LIMIT) {
+    const payments = await prisma.payment.findMany({
+      where: {
+        type: 'milestone_release',
+        milestoneId: { not: null },
+        status: { in: ['pending', 'released'] },
+      },
+      take: limit,
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        transactions: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    })
+
+    const reconciled = []
+
+    for (const payment of payments) {
+      try {
+        const latestTransaction = payment.transactions[0]
+        const transactionStatus = payment.status === 'released'
+          ? 'confirmed'
+          : (latestTransaction?.status as TransactionStatus | undefined) ?? 'submitted'
+
+        if (transactionStatus === 'failed' || transactionStatus === 'replaced') {
+          continue
+        }
+
+        const updated = await applyPaymentWorkflowState({
+          paymentId: payment.id,
+          transactionStatus,
+          txHash: latestTransaction?.txHash ?? parseMetadata(payment.metadata).txHash,
+        })
+
+        if (updated) {
+          reconciled.push(payment.id)
+        }
+      } catch (error) {
+        console.error('Failed to reconcile payment workflow state', payment.id, error)
+      }
+    }
+
+    return {
+      scanned: payments.length,
+      reconciled: reconciled.length,
     }
   },
 

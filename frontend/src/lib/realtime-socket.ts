@@ -1,4 +1,5 @@
 import { io, type Socket } from "socket.io-client";
+import { getStoredAccessToken } from "@/lib/proofchain-api";
 
 export type SubmissionUploadedPayload = {
   submissionId: string;
@@ -131,15 +132,7 @@ export const socketBase = (import.meta.env.VITE_SOCKET_URL ?? import.meta.env.VI
 );
 
 export function getAccessToken() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return (
-    window.localStorage.getItem("proofchain_access_token") ??
-    window.localStorage.getItem("accessToken") ??
-    window.localStorage.getItem("token")
-  );
+  return getStoredAccessToken();
 }
 
 export type CreateRealtimeSocketOptions = {

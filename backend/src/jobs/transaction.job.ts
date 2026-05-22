@@ -1,6 +1,7 @@
 import type { Job, JobsOptions } from 'bullmq'
 import { JsonRpcProvider } from 'ethers'
 import prisma from '../config/db'
+import { applyPaymentWorkflowState } from '../modules/payments/service'
 import type { TransactionStatus } from '../modules/payments/types'
 import { transactionPollingQueue } from '../queues/transaction.queue'
 import { emitTransactionStatusUpdated } from '../socket/events'
@@ -215,6 +216,13 @@ async function pollAndUpdateTransaction(transaction: TargetTransaction) {
   }) as TargetTransaction
 
   await updatePaymentForTransaction(updated, status)
+  if (updated.paymentId && (status === 'confirmed' || status === 'failed')) {
+    await applyPaymentWorkflowState({
+      paymentId: updated.paymentId,
+      transactionStatus: status,
+      txHash: updated.txHash,
+    })
+  }
 
   return {
     status,

@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { Interface, JsonRpcProvider, type Log, type LogDescription } from 'ethers'
 import prisma from '../../config/db'
 import { nftService } from '../nft/service'
+import { applyPaymentWorkflowState } from '../payments/service'
 import { CERTIFICATE_INDEXER_ABI, DEFAULT_UGF_INDEXER_ABI, ESCROW_INDEXER_ABI } from './abis'
 
 type IndexerSource = 'escrow' | 'certificate' | 'ugf'
@@ -234,6 +235,14 @@ async function updateTransactionFromReceipt(input: {
       },
     })
 
+    if (released || input.status === 'failed') {
+      await applyPaymentWorkflowState({
+        paymentId: String(paymentId),
+        transactionStatus: input.status,
+        txHash: input.txHash,
+      })
+    }
+
     if (released) {
       void nftService.mintFromPayment(String(paymentId)).catch((error) => {
         console.error('Failed to mint certificate after indexed payment release', error)
@@ -308,6 +317,12 @@ async function processPaymentEvent(indexedEvent: { id: string; txHash: string; b
           indexedPaymentReleasedBlockNumber: indexedEvent.blockNumber,
         } as Prisma.InputJsonValue,
       },
+    })
+
+    await applyPaymentWorkflowState({
+      paymentId: payment.id,
+      transactionStatus: 'confirmed',
+      txHash: indexedEvent.txHash,
     })
 
     await updateTransactionFromReceipt({

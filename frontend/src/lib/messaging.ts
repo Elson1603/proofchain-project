@@ -1,4 +1,5 @@
 import { io, type Socket } from "socket.io-client";
+import { apiFetch, authenticatedFetch, getStoredAccessToken } from "@/lib/proofchain-api";
 
 export type ChatParticipant = {
   id: string;
@@ -144,45 +145,15 @@ export const apiBase = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/,
 export const socketBase = (import.meta.env.VITE_SOCKET_URL ?? apiBase).replace(/\/+$/, "");
 
 export function getAccessToken() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return (
-    window.localStorage.getItem("proofchain_access_token") ??
-    window.localStorage.getItem("accessToken") ??
-    window.localStorage.getItem("token")
-  );
+  return getStoredAccessToken();
 }
 
 async function authorizedFetch<T>(path: string, init?: RequestInit) {
-  const token = getAccessToken();
-
-  if (!apiBase || !token) {
-    return null;
-  }
-
-  const response = await fetch(`${apiBase}${path}`, {
-    ...init,
-    headers: {
-      ...(init?.headers ?? {}),
-      authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  return (await response.json()) as T;
+  return apiFetch<T>(path, init ?? {}, { auth: true });
 }
 
 export async function fetchMessagingProfile() {
-  const payload = await authorizedFetch<{ success?: boolean; data?: ApiMessagingProfile }>(
-    "/api/profile/me",
-  );
-
-  return payload?.data ?? null;
+  return authorizedFetch<ApiMessagingProfile>("/api/profile/me");
 }
 
 export async function fetchConversationSummaries() {
@@ -247,20 +218,17 @@ export async function sendMessageRequest(input: {
   content: string;
   messageType?: "TEXT" | "FILE" | "SYSTEM";
 }): Promise<ApiMessage | null> {
-  const token = getAccessToken();
-
-  if (!apiBase || !token) {
-    return null;
-  }
-
-  const response = await fetch(`${apiBase}/api/messages/send`, {
+  const response = await authenticatedFetch("/api/messages/send", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(input),
-  });
+  }, { auth: true });
+
+  if (!response) {
+    return null;
+  }
 
   if (!response.ok) {
     throw new Error("Message delivery failed");
@@ -309,26 +277,21 @@ export async function uploadAttachmentRequest(input: {
   content?: string;
   onProgress?: (progress: number) => void;
 }): Promise<ApiMessage | null> {
-  const token = getAccessToken();
-
-  if (!apiBase || !token) {
-    input.onProgress?.(100);
-    return null;
-  }
-
   input.onProgress?.(30);
   const formData = new FormData();
   formData.append("projectId", input.projectId);
   formData.append("content", input.content ?? "");
   formData.append("file", input.file);
 
-  const response = await fetch(`${apiBase}/api/attachments/upload`, {
+  const response = await authenticatedFetch("/api/attachments/upload", {
     method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-    },
     body: formData,
-  });
+  }, { auth: true });
+
+  if (!response) {
+    input.onProgress?.(100);
+    return null;
+  }
 
   input.onProgress?.(85);
 

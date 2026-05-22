@@ -49,6 +49,7 @@ export function notificationHref(notification: ApiNotification) {
       return withProject("/client/approval-workflow", projectId);
     case "payment_released":
     case "payment_completed":
+    case "milestone_approved":
     case "transaction_alert":
     case "project_deadline_reminder":
       return withProject("/project-details", projectId);

@@ -21,6 +21,7 @@ import {
   fetchCurrentUser,
   fetchProjects,
   getStoredAccessToken,
+  refreshAccessToken,
   shortAddress,
   userDisplayName,
   type ApiProject,
@@ -188,79 +189,97 @@ function validateFile(file: File) {
   return "Unsupported file type.";
 }
 
-function uploadSubmission(args: {
-  apiBase: string;
-  milestoneId: string;
-  remarks?: string;
-  file: File;
-  onProgress: (percent: number) => void;
-}) {
+function uploadSubmission(
+  args: {
+    apiBase: string;
+    milestoneId: string;
+    remarks?: string;
+    file: File;
+    onProgress: (percent: number) => void;
+  },
+  retried = false,
+) {
   const { apiBase, milestoneId, remarks, file, onProgress } = args;
 
-  return new Promise<UploadSubmissionResponse>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${apiBase}/api/submissions/upload`);
-    const token = getStoredAccessToken();
-    if (token) {
-      xhr.setRequestHeader("authorization", `Bearer ${token}`);
-    }
+  return (async () => {
+    const token = getStoredAccessToken() ?? (await refreshAccessToken());
 
-    xhr.upload.onprogress = (event) => {
-      if (!event.lengthComputable) return;
-      const percent = Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100)));
-      onProgress(percent);
-    };
-
-    xhr.onload = () => {
-      const isOk = xhr.status >= 200 && xhr.status < 300;
-      const raw = xhr.responseText;
-      const parsed = raw ? tryParseJson(raw) : null;
-
-      if (!isOk) {
-        reject(new Error(extractApiErrorMessage(parsed) || raw || "Upload failed"));
-        return;
+    return new Promise<UploadSubmissionResponse>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${apiBase}/api/submissions/upload`);
+      if (token) {
+        xhr.setRequestHeader("authorization", `Bearer ${token}`);
       }
 
-      if (!parsed) {
-        reject(new Error("Unexpected server response"));
-        return;
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        const percent = Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100)));
+        onProgress(percent);
+      };
+
+      xhr.onload = () => {
+        const isOk = xhr.status >= 200 && xhr.status < 300;
+        const raw = xhr.responseText;
+        const parsed = raw ? tryParseJson(raw) : null;
+
+        if (xhr.status === 401 && !retried) {
+          void refreshAccessToken().then((nextToken) => {
+            if (!nextToken) {
+              reject(new Error("Your session expired. Please sign in again."));
+              return;
+            }
+
+            uploadSubmission(args, true).then(resolve).catch(reject);
+          });
+          return;
+        }
+
+        if (!isOk) {
+          reject(new Error(extractApiErrorMessage(parsed) || raw || "Upload failed"));
+          return;
+        }
+
+        if (!parsed) {
+          reject(new Error("Unexpected server response"));
+          return;
+        }
+
+        console.debug("[submit-work] upload response", parsed);
+        const envelope = parsed as UploadResponseEnvelope;
+        const submission = envelope.data?.submission;
+        if (submission) {
+          resolve({
+            ...submission,
+            ipfsCid: submission.ipfsCid ?? envelope.data?.ipfsCid ?? null,
+            gatewayUrl: submission.gatewayUrl ?? envelope.data?.gatewayUrl ?? "",
+          });
+          return;
+        }
+
+        resolve(parsed as UploadSubmissionResponse);
+      };
+
+      xhr.onerror = () => {
+        reject(new Error("Network error while uploading"));
+      };
+
+      const body = new FormData();
+      body.append("file", file);
+      body.append("milestoneId", milestoneId);
+      if (remarks && remarks.trim()) {
+        body.append("remarks", remarks.trim());
       }
 
-      console.debug("[submit-work] upload response", parsed);
-      const envelope = parsed as UploadResponseEnvelope;
-      const submission = envelope.data?.submission;
-      if (submission) {
-        resolve({
-          ...submission,
-          ipfsCid: submission.ipfsCid ?? envelope.data?.ipfsCid ?? null,
-          gatewayUrl: submission.gatewayUrl ?? envelope.data?.gatewayUrl ?? "",
-        });
-        return;
-      }
+      console.debug("[submit-work] upload payload", {
+        apiBase,
+        milestoneId,
+        remarks: remarks?.trim() || undefined,
+        file: { name: file.name, size: file.size, type: file.type },
+      });
 
-      resolve(parsed as UploadSubmissionResponse);
-    };
-
-    xhr.onerror = () => {
-      reject(new Error("Network error while uploading"));
-    };
-
-    const body = new FormData();
-    body.append("file", file);
-    body.append("milestoneId", milestoneId);
-    if (remarks && remarks.trim()) {
-      body.append("remarks", remarks.trim());
-    }
-
-    console.debug("[submit-work] upload payload", {
-      apiBase,
-      milestoneId,
-      remarks: remarks?.trim() || undefined,
-      file: { name: file.name, size: file.size, type: file.type },
+      xhr.send(body);
     });
-
-    xhr.send(body);
-  });
+  })();
 }
 
 function SubmitWorkPage() {

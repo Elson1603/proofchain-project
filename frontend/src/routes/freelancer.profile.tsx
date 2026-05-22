@@ -61,7 +61,7 @@ import {
   fetchNftCertificates,
   fetchPayments,
   fetchProjects,
-  getStoredAccessToken,
+  apiFetch,
   updateMyProfile,
   type ApiNftCertificate,
   type ApiPayment,
@@ -149,10 +149,6 @@ export interface ActivityItem {
 }
 
 type EarningsPoint = { label: string; earnings: number };
-
-type ApiResponse<T> =
-  | { success: true; data: T }
-  | { success: false; message: string; errors?: unknown };
 
 const freelancerNav = [
   { label: "Dashboard", to: "/freelancer/dashboard" },
@@ -360,38 +356,11 @@ function buildEarnings(payments: ApiPayment[]): EarningsPoint[] {
 }
 
 async function fetchMyProfile(apiBaseUrl: string): Promise<UserProfile | null> {
-  const token = getStoredAccessToken();
-  if (!apiBaseUrl || !token) return null;
+  if (!apiBaseUrl) return null;
 
   try {
-    const response = await fetch(`${apiBaseUrl}/api/profile/me`, {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const payload = (await response.json()) as ApiResponse<{
-      id: string;
-      username: string | null;
-      bio: string | null;
-      avatarUrl: string | null;
-      githubUrl: string | null;
-      linkedinUrl: string | null;
-      portfolioUrl: string | null;
-      skills: string[];
-      reputationScore: number;
-      fullName?: string | null;
-      walletAddress?: string | null;
-      isVerified?: boolean;
-    }>;
-
-    if (!response.ok || !payload.success) {
-      return null;
-    }
-
-    const me = payload.data;
+    const me = await apiFetch<ApiUser>("/api/profile/me", {}, { auth: true });
+    if (!me) return null;
     return profileFromApi(me);
   } catch {
     return null;

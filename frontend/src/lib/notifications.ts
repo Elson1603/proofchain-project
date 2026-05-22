@@ -1,4 +1,4 @@
-import { apiBase, getAccessToken } from "@/lib/messaging";
+import { apiFetch } from "@/lib/proofchain-api";
 
 export type ApiNotification = {
   id: string;
@@ -16,89 +16,24 @@ export async function fetchNotifications(params?: {
   offset?: number;
   unreadOnly?: boolean;
 }) {
-  const token = getAccessToken();
-
-  if (!apiBase || !token) {
-    return null;
-  }
-
   const search = new URLSearchParams();
   if (params?.limit) search.set("limit", String(params.limit));
   if (params?.offset) search.set("offset", String(params.offset));
   if (typeof params?.unreadOnly === "boolean") search.set("unreadOnly", String(params.unreadOnly));
 
-  const response = await fetch(`${apiBase}/api/notifications?${search.toString()}`, {
-    headers: {
-      authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  return (await response.json()) as ApiNotification[];
+  const suffix = search.toString() ? `?${search.toString()}` : "";
+  return apiFetch<ApiNotification[]>(`/api/notifications${suffix}`, {}, { auth: true });
 }
 
 export async function fetchUnreadCount() {
-  const token = getAccessToken();
-
-  if (!apiBase || !token) {
-    return null;
-  }
-
-  const response = await fetch(`${apiBase}/api/notifications/unread-count`, {
-    headers: {
-      authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = (await response.json()) as { count?: number };
-  return payload.count ?? 0;
+  const payload = await apiFetch<{ count?: number }>("/api/notifications/unread-count", {}, { auth: true });
+  return payload?.count ?? null;
 }
 
 export async function markNotificationRead(id: string) {
-  const token = getAccessToken();
-
-  if (!apiBase || !token) {
-    return null;
-  }
-
-  const response = await fetch(`${apiBase}/api/notifications/${id}/read`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  return (await response.json()) as ApiNotification;
+  return apiFetch<ApiNotification>(`/api/notifications/${id}/read`, { method: "POST" }, { auth: true });
 }
 
 export async function markAllNotificationsRead() {
-  const token = getAccessToken();
-
-  if (!apiBase || !token) {
-    return null;
-  }
-
-  const response = await fetch(`${apiBase}/api/notifications/read-all`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  return (await response.json()) as { updated?: number };
+  return apiFetch<{ updated?: number }>("/api/notifications/read-all", { method: "POST" }, { auth: true });
 }

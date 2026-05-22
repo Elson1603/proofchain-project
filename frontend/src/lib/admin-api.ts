@@ -1,29 +1,13 @@
-import { getAccessToken } from "@/lib/messaging";
+import { apiFetch } from "@/lib/proofchain-api";
 
 export const adminApiBase = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000").replace(/\/+$/, "");
 
 export async function adminFetch<T>(path: string, init?: RequestInit): Promise<T | null> {
-  const token = getAccessToken();
-
-  if (!adminApiBase || !token) {
+  if (!adminApiBase) {
     return null;
   }
 
-  const response = await fetch(`${adminApiBase}${path}`, {
-    ...init,
-    headers: {
-      "content-type": "application/json",
-      ...(init?.headers ?? {}),
-      authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = await response.json();
-  return (payload?.data ?? payload) as T;
+  return apiFetch<T>(path, init, { auth: true });
 }
 
 export function adminMutation<T>(path: string, body?: unknown, method = "PATCH") {

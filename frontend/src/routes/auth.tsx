@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/proofchain/theme-toggle";
 import { connectWallet } from "@/lib/escrow";
-import { API_BASE_URL } from "@/lib/proofchain-api";
+import { API_BASE_URL, storeAccessToken, storeRefreshToken, storeWalletAddress } from "@/lib/proofchain-api";
 
 const ADMIN_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "MODERATOR", "SUPPORT_ADMIN", "BLOCKCHAIN_ADMIN"]);
 
@@ -51,7 +51,7 @@ function AuthPage() {
     try {
       const { address, signer } = await connectWallet();
       if (address) {
-        window.localStorage.setItem("proofchain_wallet_address", address);
+        storeWalletAddress(address);
       }
 
       setStatus("Requesting authentication nonce...");
@@ -94,10 +94,9 @@ function AuthPage() {
         throw new Error("Backend did not return an access token");
       }
 
-      window.localStorage.setItem("proofchain_access_token", accessToken);
-      window.localStorage.setItem("accessToken", accessToken);
+      storeAccessToken(accessToken);
       if (refreshToken) {
-        window.localStorage.setItem("proofchain_refresh_token", refreshToken);
+        storeRefreshToken(refreshToken);
       }
 
       const nextRole = data.user?.role ?? role;

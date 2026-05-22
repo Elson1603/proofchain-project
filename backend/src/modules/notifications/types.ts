@@ -2,6 +2,7 @@ export const NOTIFICATION_TYPES = [
   'system',
   'submission_uploaded',
   'work_submitted',
+  'milestone_approved',
   'payment_completed',
   'payment_released',
   'nft_minted',

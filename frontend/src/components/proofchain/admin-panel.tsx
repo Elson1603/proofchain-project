@@ -58,6 +58,7 @@ import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { adminFetch, adminMutation, formatDateTime, formatMoney, shortAddress } from "@/lib/admin-api";
 import { getAccessToken } from "@/lib/messaging";
+import { clearStoredAuthTokens } from "@/lib/proofchain-api";
 import {
   createRealtimeSocketClient,
   type AdminRealtimePayload,
@@ -1381,11 +1382,7 @@ function SettingsSection() {
   };
   const emergencyLock = () => {
     if (typeof window !== "undefined") {
-      window.localStorage.removeItem("proofchain_access_token");
-      window.localStorage.removeItem("accessToken");
-      window.localStorage.removeItem("token");
-      window.localStorage.removeItem("proofchain_refresh_token");
-      window.localStorage.removeItem("refreshToken");
+      clearStoredAuthTokens();
       toast.warning("Admin session locked", { description: "Local admin tokens were cleared. Redirecting to login..." });
       window.setTimeout(() => window.location.assign("/auth"), 650);
     }
