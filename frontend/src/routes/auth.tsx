@@ -1,10 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { Wallet, ShieldCheck, UserRound } from "lucide-react";
+import { LockKeyhole, Wallet, ShieldCheck, UserRound } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { connectWallet } from "@/lib/escrow";
 import { API_BASE_URL } from "@/lib/proofchain-api";
+
+const ADMIN_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "MODERATOR", "SUPPORT_ADMIN", "BLOCKCHAIN_ADMIN"]);
+
+function routeForRole(role: string) {
+  if (ADMIN_ROLES.has(role)) {
+    return "/admin";
+  }
+
+  if (role === "CLIENT") {
+    return "/client/dashboard";
+  }
+
+  return "/freelancer/dashboard";
+}
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -86,7 +100,7 @@ function AuthPage() {
       }
 
       const nextRole = data.user?.role ?? role;
-      window.location.href = nextRole === "CLIENT" ? "/client/dashboard" : "/freelancer/dashboard";
+      window.location.href = routeForRole(nextRole);
     } catch (err) {
       console.error(err);
       setStatus(err instanceof Error ? err.message : String(err));
@@ -136,7 +150,9 @@ function AuthPage() {
           className="glass-panel rounded-xl p-6"
         >
           <h2 className="text-lg font-semibold text-foreground">Choose your role</h2>
-          <p className="mt-2 text-sm text-muted-foreground">You can switch later from settings.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            New wallets choose freelancer or client. Existing admin wallets keep their admin role automatically.
+          </p>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <button
@@ -157,6 +173,18 @@ function AuthPage() {
               <p className="mt-3 font-medium text-foreground">Client</p>
               <p className="text-xs text-muted-foreground">Review submissions and release gasless payments.</p>
             </button>
+          </div>
+
+          <div className="mt-3 rounded-lg border border-emerald-400/25 bg-emerald-400/10 p-4">
+            <div className="flex gap-3">
+              <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Admin access</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Admin is not selectable here for security. If this MetaMask wallet is already promoted to SUPER_ADMIN, click Continue and it will open the admin console after signing.
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="mt-6 flex gap-2">

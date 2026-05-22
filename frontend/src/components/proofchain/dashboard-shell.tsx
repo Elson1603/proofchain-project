@@ -83,7 +83,7 @@ export function DashboardShell({
         </aside>
 
         <main className="space-y-5">
-          <div className="glass-panel relative flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3">
+          <div className="glass-panel relative z-30 flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3">
             <div>
               <h1 className="font-display text-2xl font-bold text-foreground">{title}</h1>
               <p className="text-sm text-muted-foreground">{subtitle}</p>
@@ -153,9 +153,16 @@ export function DashboardShell({
                 </div>
               </div>
             ) : null}
-
-            {notificationsOpen ? (
-              <div className="absolute right-4 top-[calc(100%+8px)] z-40 w-[min(calc(100vw-2rem),24rem)] rounded-xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur">
+          </div>
+          {notificationsOpen ? (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-[90] cursor-default bg-transparent"
+                aria-label="Close notifications"
+                onClick={() => setNotificationsOpen(false)}
+              />
+              <div className="fixed right-4 top-24 z-[100] w-96 max-w-[calc(100vw-2rem)] rounded-xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur-xl sm:right-8">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-foreground">Notifications</p>
                   <Button
@@ -190,8 +197,8 @@ export function DashboardShell({
                   )}
                 </div>
               </div>
-            ) : null}
-          </div>
+            </>
+          ) : null}
           {children}
         </main>
       </div>
