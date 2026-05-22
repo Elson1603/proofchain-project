@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express'
 import { pinataService } from './pinata.service'
 import { submissionsService } from './service'
+import type { AuthenticatedRequest } from '../auth/types'
 
 export const submissionsController = {
   async list(req: Request, res: Response, next: NextFunction) {
@@ -24,15 +25,29 @@ export const submissionsController = {
     }
   },
 
-  async create(req: Request, res: Response, next: NextFunction) {
+  async create(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
-      res.status(201).json(await submissionsService.create(req.body))
+      const submittedById = req.user?.userId
+
+      if (!submittedById) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication is required',
+        })
+      }
+
+      res.status(201).json(
+        await submissionsService.create({
+          ...req.body,
+          submittedById,
+        }),
+      )
     } catch (error) {
       next(error)
     }
   },
 
-  async upload(req: Request, res: Response, next: NextFunction) {
+  async upload(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const file = (req as Request & { file?: Express.Multer.File }).file
 
@@ -43,7 +58,15 @@ export const submissionsController = {
         })
       }
 
-      const { milestoneId, submittedById, remarks } = req.body
+      const { milestoneId, remarks } = req.body
+      const submittedById = req.user?.userId
+
+      if (!submittedById) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication is required',
+        })
+      }
 
       const uploadResult = await pinataService.uploadFile(file)
       const submission = await submissionsService.createFileSubmission({

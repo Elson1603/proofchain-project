@@ -38,19 +38,18 @@ const uploadSingle = createSecureUploadMiddleware()
  *   post:
  *     tags: [Submissions]
  *     summary: Create a submission with external links
- *     description: Creates a non-file submission using repository/demo links and marks the related milestone as submitted.
+ *     description: Creates a non-file submission using repository/demo links and marks the related milestone as submitted. The submitter is taken from the authenticated freelancer session.
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [milestoneId, submittedById]
+ *             required: [milestoneId]
  *             properties:
  *               milestoneId:
- *                 type: string
- *                 format: uuid
- *               submittedById:
  *                 type: string
  *                 format: uuid
  *               githubLink:
@@ -63,7 +62,6 @@ const uploadSingle = createSecureUploadMiddleware()
  *                 type: string
  *           example:
  *             milestoneId: "96842c43-665c-46fe-9b27-751f1c4df8f0"
- *             submittedById: "0f2d15a5-25c1-4579-85ef-aaf64a7457aa"
  *             githubLink: "https://github.com/acme/proofchain-ui"
  *             demoLink: "https://demo.proofchain.dev"
  *             remarks: "Milestone is ready for review."
@@ -92,16 +90,13 @@ const uploadSingle = createSecureUploadMiddleware()
  *         multipart/form-data:
  *           schema:
  *             type: object
- *             required: [file, milestoneId, submittedById]
+ *             required: [file, milestoneId]
  *             properties:
  *               file:
  *                 type: string
  *                 format: binary
  *                 description: PDF, PNG, JPG/JPEG, or ZIP file. Maximum size is 20MB.
  *               milestoneId:
- *                 type: string
- *                 format: uuid
- *               submittedById:
  *                 type: string
  *                 format: uuid
  *               remarks:
@@ -116,14 +111,12 @@ const uploadSingle = createSecureUploadMiddleware()
  *               value:
  *                 file: "(binary PDF file)"
  *                 milestoneId: "96842c43-665c-46fe-9b27-751f1c4df8f0"
- *                 submittedById: "0f2d15a5-25c1-4579-85ef-aaf64a7457aa"
  *                 remarks: "Final deliverable attached for client review."
  *             zipSourceBundle:
  *               summary: Upload a ZIP source bundle
  *               value:
  *                 file: "(binary ZIP file)"
  *                 milestoneId: "96842c43-665c-46fe-9b27-751f1c4df8f0"
- *                 submittedById: "0f2d15a5-25c1-4579-85ef-aaf64a7457aa"
  *                 remarks: "Source code bundle and documentation."
  *     responses:
  *       201:
@@ -269,7 +262,7 @@ const uploadSingle = createSecureUploadMiddleware()
  */
 router.get('/', submissionsController.list)
 router.get('/:id', submissionsController.getById)
-router.post('/', validateCreateSubmission, submissionsController.create)
+router.post('/', authenticate(), validateCreateSubmission, submissionsController.create)
 router.post('/upload', authenticate(), ...uploadSingle, validateUploadSubmission, submissionsController.upload)
 router.put('/:id', validateUpdateSubmission, submissionsController.update)
 router.delete('/:id', submissionsController.remove)

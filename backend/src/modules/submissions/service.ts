@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import prisma from '../../config/db'
 import { emitSubmissionUploaded } from '../../socket/events'
+import { AppError } from '../../utils/errors'
 import { notificationsService } from '../notifications/service'
 
 type SubmissionListFilters = {
@@ -30,6 +31,39 @@ type UpdateSubmissionInput = {
   githubLink?: string
   demoLink?: string
   remarks?: string
+}
+
+async function assertFreelancerCanSubmit(milestoneId: string, submittedById: string) {
+  const milestone = await prisma.milestone.findUnique({
+    where: { id: milestoneId },
+    include: {
+      project: {
+        select: {
+          id: true,
+          freelancerId: true,
+          ownerId: true,
+        },
+      },
+    },
+  })
+
+  if (!milestone) {
+    throw new AppError(404, 'Milestone not found', 'MILESTONE_NOT_FOUND')
+  }
+
+  if (milestone.project.ownerId === submittedById) {
+    throw new AppError(403, 'Clients cannot submit freelancer deliverables', 'CLIENT_SUBMISSION_FORBIDDEN')
+  }
+
+  if (!milestone.project.freelancerId) {
+    throw new AppError(403, 'Accept the project before submitting work', 'PROJECT_ACCEPTANCE_REQUIRED')
+  }
+
+  if (milestone.project.freelancerId !== submittedById) {
+    throw new AppError(403, 'Only the assigned freelancer can submit work for this milestone', 'FREELANCER_SUBMISSION_FORBIDDEN')
+  }
+
+  return milestone
 }
 
 export const submissionsService = {
@@ -114,6 +148,8 @@ export const submissionsService = {
   },
 
   async create(data: CreateSubmissionInput) {
+    await assertFreelancerCanSubmit(data.milestoneId, data.submittedById)
+
     const submission = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const submission = await tx.submission.create({
         data: {
@@ -172,6 +208,8 @@ export const submissionsService = {
   },
 
   async createFileSubmission(data: CreateFileSubmissionInput) {
+    await assertFreelancerCanSubmit(data.milestoneId, data.submittedById)
+
     const submission = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const latestVersion = await tx.submission.findFirst({
         where: {

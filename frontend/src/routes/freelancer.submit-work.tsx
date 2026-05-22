@@ -7,7 +7,6 @@ import { DashboardShell } from "@/components/proofchain/dashboard-shell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -18,6 +17,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  fetchCurrentUser,
+  fetchProjects,
+  getStoredAccessToken,
+  shortAddress,
+  userDisplayName,
+  type ApiProject,
+  type ApiUser,
+} from "@/lib/proofchain-api";
 
 export const Route = createFileRoute("/freelancer/submit-work")({
   head: () => ({
@@ -49,6 +57,8 @@ type Milestone = {
   amount: number;
   status: string;
   projectId: string;
+  projectTitle: string;
+  projectStatus: string;
   createdAt: string;
 };
 
@@ -71,6 +81,15 @@ type ApiErrorPayload = {
   success?: boolean;
   message?: string;
   errors?: unknown;
+};
+
+type UploadResponseEnvelope = {
+  success?: boolean;
+  data?: {
+    submission?: UploadSubmissionResponse;
+    ipfsCid?: string | null;
+    gatewayUrl?: string;
+  };
 };
 
 const DEFAULT_MAX_FILE_MB = 20;
@@ -172,16 +191,19 @@ function validateFile(file: File) {
 function uploadSubmission(args: {
   apiBase: string;
   milestoneId: string;
-  submittedById: string;
   remarks?: string;
   file: File;
   onProgress: (percent: number) => void;
 }) {
-  const { apiBase, milestoneId, submittedById, remarks, file, onProgress } = args;
+  const { apiBase, milestoneId, remarks, file, onProgress } = args;
 
   return new Promise<UploadSubmissionResponse>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${apiBase}/api/submissions/upload`);
+    const token = getStoredAccessToken();
+    if (token) {
+      xhr.setRequestHeader("authorization", `Bearer ${token}`);
+    }
 
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
@@ -205,6 +227,17 @@ function uploadSubmission(args: {
       }
 
       console.debug("[submit-work] upload response", parsed);
+      const envelope = parsed as UploadResponseEnvelope;
+      const submission = envelope.data?.submission;
+      if (submission) {
+        resolve({
+          ...submission,
+          ipfsCid: submission.ipfsCid ?? envelope.data?.ipfsCid ?? null,
+          gatewayUrl: submission.gatewayUrl ?? envelope.data?.gatewayUrl ?? "",
+        });
+        return;
+      }
+
       resolve(parsed as UploadSubmissionResponse);
     };
 
@@ -215,7 +248,6 @@ function uploadSubmission(args: {
     const body = new FormData();
     body.append("file", file);
     body.append("milestoneId", milestoneId);
-    body.append("submittedById", submittedById);
     if (remarks && remarks.trim()) {
       body.append("remarks", remarks.trim());
     }
@@ -223,7 +255,6 @@ function uploadSubmission(args: {
     console.debug("[submit-work] upload payload", {
       apiBase,
       milestoneId,
-      submittedById,
       remarks: remarks?.trim() || undefined,
       file: { name: file.name, size: file.size, type: file.type },
     });
@@ -240,13 +271,13 @@ function SubmitWorkPage() {
   }, []);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [user, setUser] = useState<ApiUser | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [milestonesLoading, setMilestonesLoading] = useState(false);
   const [milestonesError, setMilestonesError] = useState<string | null>(null);
 
   const [milestoneId, setMilestoneId] = useState<string>("");
-  const [submittedById, setSubmittedById] = useState<string>("");
   const [remarks, setRemarks] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
 
@@ -256,50 +287,88 @@ function SubmitWorkPage() {
   const [uploadResult, setUploadResult] = useState<UploadSubmissionResponse | null>(null);
 
   useEffect(() => {
-    const cached = window.localStorage.getItem("proofchain.userId");
-    if (cached && !submittedById) {
-      setSubmittedById(cached);
-    }
-  }, [submittedById]);
-
-  useEffect(() => {
     if (!apiBase) {
       setMilestonesError("Missing API base URL. Set VITE_API_URL (or VITE_API_BASE_URL) in frontend/.env");
       return;
     }
 
-    const controller = new AbortController();
+    let cancelled = false;
     setMilestonesLoading(true);
     setMilestonesError(null);
 
-    fetch(`${apiBase}/api/milestones`, { signal: controller.signal })
-      .then(async (res) => {
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(text || "Failed to load milestones");
-        }
-        return (await res.json()) as Milestone[];
-      })
-      .then((data) => {
-        setMilestones(Array.isArray(data) ? data : []);
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        const message = error instanceof Error ? error.message : "Failed to load milestones";
-        setMilestonesError(message);
-      })
-      .finally(() => {
-        setMilestonesLoading(false);
-      });
+    async function loadAssignedMilestones() {
+      const me = await fetchCurrentUser();
 
-    return () => controller.abort();
+      if (!me) {
+        if (!cancelled) {
+          setUser(null);
+          setMilestones([]);
+          setMilestonesError("Connect your freelancer wallet to load assigned milestones.");
+          setMilestonesLoading(false);
+        }
+        return;
+      }
+
+      if (me.role && me.role !== "FREELANCER") {
+        if (!cancelled) {
+          setUser(me);
+          setMilestones([]);
+          setMilestonesError("Switch to a freelancer account before submitting work.");
+          setMilestonesLoading(false);
+        }
+        return;
+      }
+
+      const projects = await fetchProjects({ freelancerId: me.id }).catch(() => null);
+
+      if (cancelled) {
+        return;
+      }
+
+      const assignedMilestones = (projects ?? [])
+        .filter((project: ApiProject) => !["completed", "rejected"].includes(project.status))
+        .flatMap((project: ApiProject) =>
+          (project.milestones ?? []).map((milestone) => ({
+            id: milestone.id,
+            title: milestone.title,
+            description: milestone.description ?? null,
+            amount: milestone.amount,
+            status: milestone.status,
+            projectId: project.id,
+            projectTitle: project.title,
+            projectStatus: project.status,
+            createdAt: milestone.createdAt ?? project.createdAt,
+          })),
+        );
+
+      setUser(me);
+      setMilestones(assignedMilestones);
+      setMilestoneId((current) =>
+        current && assignedMilestones.some((milestone) => milestone.id === current)
+          ? current
+          : (assignedMilestones[0]?.id ?? ""),
+      );
+      setMilestonesError(assignedMilestones.length ? null : "No accepted project milestones found yet. Accept a project first, then submit work here.");
+      setMilestonesLoading(false);
+    }
+
+    void loadAssignedMilestones().catch((error: unknown) => {
+      if (cancelled) return;
+      const message = error instanceof Error ? error.message : "Failed to load assigned milestones";
+      setMilestonesError(message);
+      setMilestonesLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [apiBase]);
 
   const selectedMilestone = useMemo(() => {
     return milestones.find((m) => m.id === milestoneId) ?? null;
   }, [milestones, milestoneId]);
 
-  const canSubmit = Boolean(apiBase && milestoneId && submittedById.trim() && file && !isUploading);
+  const canSubmit = Boolean(apiBase && milestoneId && user?.id && file && !isUploading);
 
   const onChooseFile = (next: File | null) => {
     setSubmitError(null);
@@ -335,9 +404,8 @@ function SubmitWorkPage() {
       return;
     }
 
-    const trimmedUserId = submittedById.trim();
-    if (!trimmedUserId) {
-      setSubmitError("Please provide your freelancer user id.");
+    if (!user?.id) {
+      setSubmitError("Connect your freelancer wallet before submitting work.");
       return;
     }
 
@@ -359,7 +427,6 @@ function SubmitWorkPage() {
       const result = await uploadSubmission({
         apiBase,
         milestoneId,
-        submittedById: trimmedUserId,
         remarks,
         file,
         onProgress: setUploadProgress,
@@ -367,11 +434,9 @@ function SubmitWorkPage() {
 
       setUploadProgress(100);
       setUploadResult(result);
-      window.localStorage.setItem("proofchain.userId", trimmedUserId);
       toast.success("Submission uploaded successfully.");
       console.debug("[submit-work] upload success", result);
 
-      // Reset form fields but keep cached userId.
       setRemarks("");
       setFile(null);
       if (fileInputRef.current) {
@@ -434,25 +499,24 @@ function SubmitWorkPage() {
               </Select>
               {selectedMilestone ? (
                 <p className="text-xs text-muted-foreground">
-                  {selectedMilestone.description ? selectedMilestone.description : "No milestone description"}
+                  {selectedMilestone.projectTitle} · {selectedMilestone.description ? selectedMilestone.description : "No milestone description"}
                 </p>
               ) : null}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="submittedById" className="text-xs text-muted-foreground">
-                Freelancer user id
-              </Label>
-              <Input
-                id="submittedById"
-                className="bg-secondary/30"
-                placeholder="UUID (e.g. from auth-test output)"
-                value={submittedById}
-                onChange={(e) => setSubmittedById(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Stored in local storage as <span className="font-mono">proofchain.userId</span> after first submit.
-              </p>
+            <div className="surface-panel rounded-lg p-3">
+              <p className="text-xs text-muted-foreground">Submitting as</p>
+              {user ? (
+                <div className="mt-2 space-y-1">
+                  <p className="text-sm font-medium text-foreground">{userDisplayName(user)}</p>
+                  <p className="text-xs text-muted-foreground">{shortAddress(user.walletAddress)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Freelancer ID is attached automatically from your wallet session.
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">Connect a freelancer wallet on the auth page.</p>
+              )}
             </div>
 
             <div className="space-y-2">

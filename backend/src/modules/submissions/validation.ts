@@ -4,7 +4,7 @@ import { validate } from '../../utils/validation'
 const createSubmissionSchema = z.object({
   body: z.object({
     milestoneId: z.string().uuid('Invalid milestone id'),
-    submittedById: z.string().uuid('Invalid user id'),
+    submittedById: z.string().uuid('Invalid user id').optional(),
     githubLink: z.string().url('Invalid GitHub link').optional(),
     demoLink: z.string().url('Invalid demo link').optional(),
     remarks: z.string().trim().optional(),
@@ -14,7 +14,7 @@ const createSubmissionSchema = z.object({
 const uploadSubmissionSchema = z.object({
   body: z.object({
     milestoneId: z.string().uuid('Invalid milestone id'),
-    submittedById: z.string().uuid('Invalid user id'),
+    submittedById: z.string().uuid('Invalid user id').optional(),
     remarks: z.string().trim().optional(),
   }),
 })
