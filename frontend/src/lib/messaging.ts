@@ -58,6 +58,9 @@ export type ProjectConversation = {
   client: ChatParticipant;
   freelancer: ChatParticipant;
   messages: ChatMessage[];
+  nextCursor?: string | null;
+  hasMore?: boolean;
+  loadingHistory?: boolean;
 };
 
 export type ApiUserSummary = {
@@ -160,8 +163,15 @@ export async function fetchConversationSummaries() {
   return authorizedFetch<ApiConversationSummary[]>("/api/conversations");
 }
 
-export async function fetchConversationMessages(conversationId: string, limit = 50) {
+export async function fetchConversationByProject(projectId: string) {
+  return authorizedFetch<ApiConversationSummary>(`/api/conversations/project/${encodeURIComponent(projectId)}`);
+}
+
+export async function fetchConversationMessages(conversationId: string, limit = 50, cursor?: string | null) {
   const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor) {
+    params.set("cursor", cursor);
+  }
   return authorizedFetch<ApiMessagePage>(`/api/messages/${conversationId}?${params.toString()}`);
 }
 

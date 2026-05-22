@@ -46,6 +46,7 @@ import {
   createMessageProofRequest,
   createMessagingSocket,
   decodeMessageText,
+  fetchConversationByProject,
   fetchConversationMessages,
   fetchConversationSummaries,
   fetchMessagingProfile,
@@ -277,6 +278,9 @@ function mapConversationSummaries(
       client,
       freelancer,
       messages: latestMessage ? [latestMessage] : [],
+      nextCursor: null,
+      hasMore: false,
+      loadingHistory: false,
     };
   });
 }
@@ -1131,6 +1135,7 @@ function ChatArea({
   onLoadSmartReplies,
   onStoreProof,
   onMarkRead,
+  onLoadOlder,
 }: {
   conversation: ProjectConversation;
   connectionLabel: string;
@@ -1148,6 +1153,7 @@ function ChatArea({
   onLoadSmartReplies: () => void;
   onStoreProof: () => void;
   onMarkRead: () => void;
+  onLoadOlder: () => void;
 }) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1221,6 +1227,20 @@ function ChatArea({
             <Bot className="h-3.5 w-3.5 text-primary" />
             Workflow events are synced into this room
           </div>
+          {conversation.hasMore ? (
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-lg"
+                onClick={onLoadOlder}
+                disabled={conversation.loadingHistory}
+              >
+                {conversation.loadingHistory ? "Loading history..." : "Load older messages"}
+              </Button>
+            </div>
+          ) : null}
           <AnimatePresence initial={false}>
             {visibleMessages.map((message) => (
               <MessageBubble key={message.id} message={message} onReaction={onReaction} />
@@ -1285,7 +1305,7 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
   const socketRef = useRef<ReturnType<typeof createMessagingSocket>>(null);
   const readSyncKeyRef = useRef<string | null>(null);
 
-  const selectedProjectId = activeProjectId ?? null;
+  const selectedProjectId = activeProjectId ?? conversations[0]?.projectId ?? null;
   const navItems = useMemo(
     () => (currentUserRole ? resolveNavigationItems(currentUserRole) : []),
     [currentUserRole],
@@ -1313,15 +1333,26 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
         setCurrentUserProfile(profile);
       }
 
-      const summaries = await fetchConversationSummaries();
+      const summaries = (await fetchConversationSummaries()) ?? [];
 
       if (!isActive) {
         return;
       }
 
-      if (summaries?.length) {
-        setConversations(mapConversationSummaries(summaries, profile?.id ?? null));
+      let nextSummaries = summaries;
+      if (activeProjectId && !nextSummaries.some((summary) => summary.projectId === activeProjectId)) {
+        const activeConversationSummary = await fetchConversationByProject(activeProjectId).catch(() => null);
+
+        if (!isActive) {
+          return;
+        }
+
+        if (activeConversationSummary) {
+          nextSummaries = [activeConversationSummary, ...nextSummaries];
+        }
       }
+
+      setConversations(mapConversationSummaries(nextSummaries, profile?.id ?? null));
     };
 
     void loadMessagingData();
@@ -1329,7 +1360,7 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [activeProjectId]);
 
   // Conversations are loaded from the backend; do not inject demo conversations.
 
@@ -1343,7 +1374,7 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
     let isActive = true;
 
     const loadMessages = async () => {
-      const page = await fetchConversationMessages(conversationId, 60);
+      const page = await fetchConversationMessages(conversationId, 50);
 
       if (!isActive || !page) {
         return;
@@ -1362,6 +1393,9 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
                 messages: mapped,
                 lastMessage: latest?.content || conversation.lastMessage,
                 timestamp: latest?.timestamp || conversation.timestamp,
+                nextCursor: page.nextCursor,
+                hasMore: page.hasMore,
+                loadingHistory: false,
               }
             : conversation,
         ),
@@ -1673,6 +1707,62 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
     toast.success("Conversation marked read");
   };
 
+  const handleLoadOlderMessages = async () => {
+    if (!activeConversation?.nextCursor || activeConversation.loadingHistory) {
+      return;
+    }
+
+    const conversationId = activeConversation.id;
+    const projectId = activeConversation.projectId;
+    const cursor = activeConversation.nextCursor;
+
+    setConversations((current) =>
+      current.map((conversation) =>
+        conversation.id === conversationId ? { ...conversation, loadingHistory: true } : conversation,
+      ),
+    );
+
+    try {
+      const page = await fetchConversationMessages(conversationId, 50, cursor);
+      if (!page) {
+        setConversations((current) =>
+          current.map((conversation) =>
+            conversation.id === conversationId ? { ...conversation, loadingHistory: false } : conversation,
+          ),
+        );
+        return;
+      }
+
+      const olderMessages = page.messages.map((message) => mapApiMessage(message, projectId, currentUserId));
+
+      setConversations((current) =>
+        current.map((conversation) => {
+          if (conversation.id !== conversationId) {
+            return conversation;
+          }
+
+          const existingIds = new Set(conversation.messages.map((message) => message.id));
+          const dedupedOlder = olderMessages.filter((message) => !existingIds.has(message.id));
+
+          return {
+            ...conversation,
+            messages: [...dedupedOlder, ...conversation.messages],
+            nextCursor: page.nextCursor,
+            hasMore: page.hasMore,
+            loadingHistory: false,
+          };
+        }),
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not load older messages");
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === conversationId ? { ...conversation, loadingHistory: false } : conversation,
+        ),
+      );
+    }
+  };
+
   const handleStoreProof = async () => {
     if (!activeConversation) {
       return;
@@ -1814,6 +1904,7 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
               onLoadSmartReplies={handleLoadSmartReplies}
               onStoreProof={handleStoreProof}
               onMarkRead={handleMarkConversationRead}
+              onLoadOlder={handleLoadOlderMessages}
             />
           ) : (
             <EmptyState />

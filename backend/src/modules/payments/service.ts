@@ -2,6 +2,7 @@ import type { PaymentStatus as PrismaPaymentStatus, Prisma } from '@prisma/clien
 import { JsonRpcProvider, isAddress } from 'ethers'
 import prisma from '../../config/db'
 import { emitPaymentCompleted, emitProjectUpdated } from '../../socket/events'
+import { AppError } from '../../utils/errors'
 import { normalizeWalletAddress } from '../auth/utils'
 import { nftService } from '../nft/service'
 import { notificationsService } from '../notifications/service'
@@ -192,6 +193,102 @@ async function findWorkflowPayment(paymentId: string) {
       milestone: true,
     },
   })
+}
+
+async function validatePaymentWorkflowInput(input: ExecuteInput) {
+  const project = await prisma.project.findUnique({
+    where: { id: input.projectId },
+    select: {
+      id: true,
+      ownerId: true,
+      freelancerId: true,
+    },
+  })
+
+  if (!project) {
+    throw new AppError(404, 'Project not found', 'PROJECT_NOT_FOUND')
+  }
+
+  if (project.ownerId !== input.payerId) {
+    throw new AppError(403, 'Payment payer must be the project client', 'PAYMENT_PAYER_MISMATCH')
+  }
+
+  if (input.milestoneId) {
+    const milestone = await prisma.milestone.findUnique({
+      where: { id: input.milestoneId },
+      select: { id: true, projectId: true },
+    })
+
+    if (!milestone) {
+      throw new AppError(404, 'Milestone not found', 'MILESTONE_NOT_FOUND')
+    }
+
+    if (milestone.projectId !== input.projectId) {
+      throw new AppError(409, 'Milestone does not belong to this project', 'PAYMENT_MILESTONE_PROJECT_MISMATCH')
+    }
+  }
+
+  let expectedPayeeId = project.freelancerId
+  if (input.submissionId) {
+    const submission = await prisma.submission.findUnique({
+      where: { id: input.submissionId },
+      select: {
+        id: true,
+        milestoneId: true,
+        submittedById: true,
+        milestone: {
+          select: { projectId: true },
+        },
+      },
+    })
+
+    if (!submission) {
+      throw new AppError(404, 'Submission not found', 'SUBMISSION_NOT_FOUND')
+    }
+
+    if (submission.milestone.projectId !== input.projectId) {
+      throw new AppError(409, 'Submission does not belong to this project', 'PAYMENT_SUBMISSION_PROJECT_MISMATCH')
+    }
+
+    if (input.milestoneId && submission.milestoneId !== input.milestoneId) {
+      throw new AppError(409, 'Submission does not belong to this milestone', 'PAYMENT_SUBMISSION_MILESTONE_MISMATCH')
+    }
+
+    expectedPayeeId = submission.submittedById
+  }
+
+  if (input.type === 'milestone_release') {
+    if (!expectedPayeeId) {
+      throw new AppError(409, 'Project must have an assigned freelancer before payment release', 'PAYMENT_PAYEE_REQUIRED')
+    }
+
+    if (input.payeeId !== expectedPayeeId) {
+      throw new AppError(409, 'Payment payee must match the assigned freelancer or submission owner', 'PAYMENT_PAYEE_MISMATCH')
+    }
+
+    const existingEscrowLink = await prisma.payment.findFirst({
+      where: {
+        type: 'milestone_release',
+        projectId: { not: input.projectId },
+        metadata: { path: ['projectChainId'], equals: input.projectChainId },
+      },
+      select: {
+        id: true,
+        projectId: true,
+        payeeId: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    if (existingEscrowLink) {
+      throw new AppError(
+        409,
+        'This escrow project ID is already linked to another ProofChain project. Use the ProjectCreated ID for the selected freelancer.',
+        'ESCROW_PROJECT_ID_ALREADY_LINKED',
+        { paymentId: existingEscrowLink.id, projectId: existingEscrowLink.projectId, payeeId: existingEscrowLink.payeeId },
+      )
+    }
+  }
 }
 
 export async function applyPaymentWorkflowState(params: {
@@ -624,6 +721,8 @@ export const paymentsService = {
     if (!PAYMENT_TYPES.includes(input.type as (typeof PAYMENT_TYPES)[number])) {
       throw new Error('Invalid payment type')
     }
+
+    await validatePaymentWorkflowInput(input)
 
     const transactionStatus = ensureTransactionStatus(input.status)
     const paymentStatus = getPaymentStatusUpdate(transactionStatus)

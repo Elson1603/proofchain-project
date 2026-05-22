@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { CheckCircle2, CircleDollarSign, FileCheck2, ShieldCheck, XCircle, type LucideIcon } from "lucide-react";
-import { Interface, type TransactionRequest } from "ethers";
+import { CheckCircle2, CircleDollarSign, FileCheck2, ShieldCheck, Wallet, XCircle, type LucideIcon } from "lucide-react";
+import { Contract, Interface, type TransactionRequest } from "ethers";
 import { useUGFModal } from "@tychilabs/react-ugf";
 import { DashboardShell } from "@/components/proofchain/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import {
   fetchSubmissions,
   formatDateTime,
   formatMoney,
+  shortAddress,
   shortHash,
   userDisplayName,
   type ApiProject,
@@ -84,6 +85,21 @@ function getMilestoneIndex(project: ApiProject | null | undefined, milestoneId: 
   return index >= 0 ? index : 0;
 }
 
+function addressesMatch(left?: string | null, right?: string | null) {
+  return Boolean(left && right && left.toLowerCase() === right.toLowerCase());
+}
+
+function readEscrowProjectFreelancer(record: unknown) {
+  if (!record) return "";
+  if (typeof record === "object" && "freelancer" in record) {
+    return String((record as { freelancer?: unknown }).freelancer ?? "");
+  }
+  if (Array.isArray(record)) {
+    return String(record[1] ?? "");
+  }
+  return "";
+}
+
 function ApprovalWorkflowPage() {
   const { openUGF, result } = useUGFModal();
   const [user, setUser] = useState<ApiUser | null>(null);
@@ -111,6 +127,7 @@ function ApprovalWorkflowPage() {
     payerWallet: string;
     amount: number;
   } | null>(null);
+  const [verifiedEscrowFreelancer, setVerifiedEscrowFreelancer] = useState<string | null>(null);
   const lastRecordedTxHash = useRef<string | null>(null);
 
   const contractLabel = ESCROW_CONTRACT_ADDRESS
@@ -126,6 +143,7 @@ function ApprovalWorkflowPage() {
     selectedSubmission?.milestone?.project ??
     null;
   const selectedMilestone = selectedSubmission?.milestone ?? null;
+  const selectedPayeeWallet = selectedSubmission?.submittedBy?.walletAddress ?? selectedProject?.freelancer?.walletAddress ?? null;
   const hasSelectedSubmission = Boolean(selectedSubmission && projectId && milestoneId && payerId && payeeId);
   const hasProjectChainId = projectChainId.trim().length > 0;
 
@@ -191,7 +209,7 @@ function ApprovalWorkflowPage() {
 
     try {
       const escrowAddress = requireEscrowAddress();
-      const projectValue = parseUint(projectChainId, "project chain ID");
+      const projectValue = parseUint(projectChainId, "escrow project ID");
       const milestoneValue = parseUint(milestoneIndex, "milestone index");
       const amountValue = parseAmount(amount);
 
@@ -201,6 +219,23 @@ function ApprovalWorkflowPage() {
 
       const { signer, address } = await connectWallet(null);
       setWalletAddress(address);
+
+      if (!selectedPayeeWallet) {
+        throw new Error("Selected freelancer wallet is missing. Ask the freelancer to reconnect once before payment release.");
+      }
+
+      const escrowContract = new Contract(escrowAddress, escrowAbi, signer);
+      const escrowProject = await escrowContract.projects(projectValue);
+      const onChainFreelancer = readEscrowProjectFreelancer(escrowProject);
+      setVerifiedEscrowFreelancer(onChainFreelancer || null);
+
+      if (!addressesMatch(onChainFreelancer, selectedPayeeWallet)) {
+        throw new Error(
+          `Escrow project ID ${projectValue} belongs to ${shortAddress(onChainFreelancer)}, but this submission is from ${shortAddress(
+            selectedPayeeWallet,
+          )}. Use the ProjectCreated ID for this freelancer.`,
+        );
+      }
 
       const escrowInterface = new Interface(escrowAbi);
       const functionName = action === "approve_milestone" ? "approveMilestone" : "releasePayment";
@@ -242,7 +277,7 @@ function ApprovalWorkflowPage() {
     }
 
     if (!hasProjectChainId) {
-      setStatus("Project chain ID is missing. Create the project escrow on-chain first, then use the ProjectCreated event ID.");
+      setStatus("Escrow project ID is missing. Create the project escrow on-chain first, then use the ProjectCreated event ID.");
       return;
     }
 
@@ -256,7 +291,7 @@ function ApprovalWorkflowPage() {
     }
 
     if (!hasProjectChainId) {
-      setStatus("Project chain ID is missing. Create the project escrow on-chain first, then use the ProjectCreated event ID.");
+      setStatus("Escrow project ID is missing. Create the project escrow on-chain first, then use the ProjectCreated event ID.");
       return;
     }
 
@@ -270,11 +305,11 @@ function ApprovalWorkflowPage() {
     }
 
     if (!hasProjectChainId) {
-      setStatus("Project chain ID is missing. Create the project escrow on-chain first, then use the ProjectCreated event ID.");
+      setStatus("Escrow project ID is missing. Create the project escrow on-chain first, then use the ProjectCreated event ID.");
       return;
     }
 
-    const projectValue = parseUint(projectChainId, "project chain ID");
+    const projectValue = parseUint(projectChainId, "escrow project ID");
 
     await runTx("Raise dispute", async () => {
       const contract = await getEscrowContract();
@@ -317,6 +352,7 @@ function ApprovalWorkflowPage() {
           setProjectId(linkedProject.id);
           setPayerId(linkedProject.ownerId);
           setPayeeId(linkedSubmission.submittedById);
+          setVerifiedEscrowFreelancer(null);
           setAmount(String(linkedSubmission.milestone?.amount ?? ""));
           setMilestoneIndex(String(getMilestoneIndex(projectRecord, linkedSubmission.milestoneId)));
           setProjectChainId(storedChainId === null ? "" : String(storedChainId));
@@ -348,6 +384,7 @@ function ApprovalWorkflowPage() {
     setProjectId(project?.id ?? "");
     setPayerId(project?.ownerId ?? "");
     setPayeeId(submission.submittedById);
+    setVerifiedEscrowFreelancer(null);
     setAmount(String(submission.milestone?.amount ?? ""));
     setMilestoneIndex(String(getMilestoneIndex(projectRecord, submission.milestoneId)));
     setProjectChainId(storedChainId === null ? "" : String(storedChainId));
@@ -467,10 +504,11 @@ function ApprovalWorkflowPage() {
                   <Badge variant="secondary">{selectedMilestone?.status ?? "submitted"}</Badge>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-4">
                   <ReviewMetric icon={FileCheck2} label="Proof" value={shortHash(selectedSubmission.ipfsCid ?? selectedSubmission.id)} />
                   <ReviewMetric icon={CircleDollarSign} label="Amount" value={formatMoney(Number(amount || 0))} />
                   <ReviewMetric icon={ShieldCheck} label="Payment" value={paymentType.replace(/_/g, " ")} />
+                  <ReviewMetric icon={Wallet} label="Freelancer" value={shortAddress(selectedPayeeWallet)} />
                 </div>
 
                 {selectedSubmission.gatewayUrl || selectedSubmission.ipfsCid ? (
@@ -494,7 +532,7 @@ function ApprovalWorkflowPage() {
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Escrow identifiers</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Project chain ID comes from the escrow contract after on-chain setup. Milestone index is auto-filled from the milestone order.
+                  Escrow project ID comes from the ProjectCreated event. MetaMask will show the escrow contract as the transaction recipient.
                 </p>
               </div>
               <Badge variant="outline" className="border-border/80 text-muted-foreground">
@@ -505,7 +543,7 @@ function ApprovalWorkflowPage() {
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground" htmlFor="projectChainId">
-                  Project chain ID
+                  Escrow project ID
                 </label>
                 <Input
                   id="projectChainId"
@@ -537,6 +575,12 @@ function ApprovalWorkflowPage() {
                 />
                 <p className="text-xs text-muted-foreground">First milestone is 0, second is 1, third is 2.</p>
               </div>
+            </div>
+            <div className="mt-3 rounded-lg border border-border/70 bg-secondary/25 p-3 text-xs text-muted-foreground">
+              <p>Contract recipient: {contractLabel} · Freelancer payout wallet: {shortAddress(selectedPayeeWallet)}</p>
+              {verifiedEscrowFreelancer ? (
+                <p className="mt-1 text-primary">Verified on-chain freelancer: {shortAddress(verifiedEscrowFreelancer)}</p>
+              ) : null}
             </div>
           </div>
 
