@@ -10,7 +10,8 @@ import { shutdownBackgroundWorkers, startBackgroundWorkers } from './workers'
 
 const app = createApp()
 const server = createServer(app)
-const PORT = process.env.PORT || 5000
+const PORT = Number(process.env.PORT || 5000)
+const HOST = process.env.HOST || '0.0.0.0'
 
 const io = initializeSocket(server, {
   authorizeProjectRoom: async (user, projectId) => {
@@ -20,14 +21,19 @@ const io = initializeSocket(server, {
 
 registerMessagingGateway(io)
 
-server.listen(PORT, () => {
+server.on('error', (error) => {
+  console.error('HTTP server failed to start', error)
+  process.exit(1)
+})
+
+server.listen(PORT, HOST, () => {
   paymentsService.startPolling()
   blockchainIndexerService.start()
   notificationsService.startReminderPolling()
   void startBackgroundWorkers().catch((error) => {
     console.error('Failed to start background workers', error)
   })
-  console.log(`Server running on port ${PORT}`)
+  console.log(`Server running on http://${HOST}:${PORT}`)
 })
 
 let isShuttingDown = false
