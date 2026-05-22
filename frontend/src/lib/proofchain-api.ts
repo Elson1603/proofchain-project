@@ -65,6 +65,7 @@ export type ApiSubmission = {
   demoLink?: string | null;
   remarks?: string | null;
   ipfsCid?: string | null;
+  gatewayUrl?: string | null;
   fileName?: string | null;
   fileSize?: number | null;
   mimeType?: string | null;
