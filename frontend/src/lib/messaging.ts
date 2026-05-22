@@ -98,6 +98,9 @@ export type ApiMessage = {
   messageType: "TEXT" | "FILE" | "SYSTEM";
   isDeleted?: boolean;
   createdAt?: string;
+  messageHash?: string | null;
+  blockchainTxHash?: string | null;
+  blockchainProofedAt?: string | null;
   sender?: ApiUserSummary | null;
   reactions?: ApiMessageReaction[];
   reads?: ApiMessageRead[];
@@ -134,6 +137,7 @@ export type ApiMessagingProfile = {
   role: "FREELANCER" | "CLIENT" | "ADMIN";
   username?: string | null;
   avatarUrl?: string | null;
+  walletAddress?: string | null;
 };
 
 export const apiBase = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
@@ -208,6 +212,19 @@ export function shortHash(hash?: string) {
   return hash.length > 12 ? `${hash.slice(0, 8)}...${hash.slice(-6)}` : hash;
 }
 
+export function decodeMessageText(value?: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 export function createMessagingSocket(projectId?: string): Socket | null {
   const token = getAccessToken();
 
@@ -229,7 +246,7 @@ export async function sendMessageRequest(input: {
   projectId: string;
   content: string;
   messageType?: "TEXT" | "FILE" | "SYSTEM";
-}) {
+}): Promise<ApiMessage | null> {
   const token = getAccessToken();
 
   if (!apiBase || !token) {
@@ -252,12 +269,46 @@ export async function sendMessageRequest(input: {
   return response.json();
 }
 
+export async function markConversationReadRequest(conversationId: string): Promise<{
+  count?: number;
+  messageIds?: string[];
+  readAt?: string;
+} | null> {
+  return authorizedFetch<{ count?: number; messageIds?: string[]; readAt?: string }>(
+    `/api/conversations/${conversationId}/read`,
+    {
+      method: "POST",
+    },
+  );
+}
+
+export async function createMessageProofRequest(messageId: string): Promise<{
+  message?: ApiMessage;
+  messageHash?: string;
+  txHash?: string | null;
+  submittedOnchain?: boolean;
+} | null> {
+  return authorizedFetch<{
+    message?: ApiMessage;
+    messageHash?: string;
+    txHash?: string | null;
+    submittedOnchain?: boolean;
+  }>(`/api/messages/${messageId}/proof`, {
+    method: "POST",
+  });
+}
+
+export async function fetchSmartReplySuggestions(conversationId: string) {
+  const payload = await authorizedFetch<{ suggestions?: string[] }>(`/api/conversations/${conversationId}/smart-replies`);
+  return payload?.suggestions ?? null;
+}
+
 export async function uploadAttachmentRequest(input: {
   projectId: string;
   file: File;
   content?: string;
   onProgress?: (progress: number) => void;
-}) {
+}): Promise<ApiMessage | null> {
   const token = getAccessToken();
 
   if (!apiBase || !token) {

@@ -1374,6 +1374,22 @@ function SettingsSection() {
     { role: "SUPPORT_ADMIN", access: "Users and account health", icon: UserCog },
     { role: "BLOCKCHAIN_ADMIN", access: "Transactions, UGF, NFTs", icon: Network },
   ];
+  const showSessionPolicy = () => {
+    toast.info("Session policy", {
+      description: "JWT validation, refresh-token sessions, admin rate limits, and RBAC checks are enabled for protected routes.",
+    });
+  };
+  const emergencyLock = () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem("proofchain_access_token");
+      window.localStorage.removeItem("accessToken");
+      window.localStorage.removeItem("token");
+      window.localStorage.removeItem("proofchain_refresh_token");
+      window.localStorage.removeItem("refreshToken");
+      toast.warning("Admin session locked", { description: "Local admin tokens were cleared. Redirecting to login..." });
+      window.setTimeout(() => window.location.assign("/auth"), 650);
+    }
+  };
 
   return (
     <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
@@ -1407,11 +1423,11 @@ function SettingsSection() {
           <MetricPill label="Chain" value="Base Sepolia" />
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
-          <Button variant="outline" className="gap-2 rounded-[8px] border-white/10 bg-white/[0.04]">
+          <Button variant="outline" className="gap-2 rounded-[8px] border-white/10 bg-white/[0.04]" onClick={showSessionPolicy}>
             <Clock3 className="h-4 w-4" />
             Session Policy
           </Button>
-          <Button variant="outline" className="gap-2 rounded-[8px] border-white/10 bg-white/[0.04]">
+          <Button variant="outline" className="gap-2 rounded-[8px] border-white/10 bg-white/[0.04]" onClick={emergencyLock}>
             <XCircle className="h-4 w-4" />
             Emergency Lock
           </Button>

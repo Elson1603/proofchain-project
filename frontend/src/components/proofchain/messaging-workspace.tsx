@@ -32,18 +32,24 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent, type RefObject } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { useNotifications } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
+  createMessageProofRequest,
   createMessagingSocket,
+  decodeMessageText,
   fetchConversationMessages,
   fetchConversationSummaries,
   fetchMessagingProfile,
+  fetchSmartReplySuggestions,
   formatBytes,
+  markConversationReadRequest,
   sendMessageRequest,
   shortHash,
   uploadAttachmentRequest,
@@ -63,6 +69,11 @@ type MessagingWorkspaceProps = {
 type FilterMode = "All" | "Active" | "Unread";
 
 const reactionOptions = ["👍", "❤️", "🔥", "✅"];
+const defaultSmartReplies = [
+  "I'll review this milestone soon.",
+  "Please upload the final deliverables.",
+  "Ready to store this onchain.",
+];
 
 const freelancerNavigationItems = [
   { label: "Dashboard", to: "/freelancer/dashboard", icon: LayoutDashboard },
@@ -220,7 +231,7 @@ function mapApiMessage(
   const fallbackContent = attachments?.length
     ? `Shared ${attachments[0].fileName}`
     : "Message";
-  const content = message.isDeleted ? "Message deleted" : message.content || fallbackContent;
+  const content = message.isDeleted ? "Message deleted" : decodeMessageText(message.content || fallbackContent);
 
   return {
     id: message.id,
@@ -363,6 +374,9 @@ function Sidebar({
   navItems: typeof freelancerNavigationItems;
   profile: ApiMessagingProfile | null;
 }) {
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { notifications, unreadCount, isLoading, markRead, markAllRead } = useNotifications({ limit: 4 });
+
   return (
     <aside
       className={cn(
@@ -394,7 +408,7 @@ function Sidebar({
         <div className="flex items-center justify-between gap-2">
           <span className="inline-flex min-w-0 items-center gap-2 text-xs text-primary">
             <WalletCards className="h-4 w-4 shrink-0" />
-            <span className="truncate">0x62B1...9AD2</span>
+            <span className="truncate">{profile?.walletAddress ? shortHash(profile.walletAddress) : "Connect wallet"}</span>
           </span>
           <BadgeCheck className="h-4 w-4 shrink-0 text-primary" />
         </div>
@@ -427,7 +441,7 @@ function Sidebar({
         })}
       </nav>
 
-      <div className="mt-5 rounded-2xl border border-border/70 bg-surface/80 p-3">
+      <div className="relative mt-5 rounded-2xl border border-border/70 bg-surface/80 p-3">
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9 border border-primary/30">
             <AvatarFallback className="bg-primary/15 text-xs font-bold text-primary">
@@ -444,13 +458,52 @@ function Sidebar({
           </div>
           <button
             type="button"
+            onClick={() => setNotificationsOpen((open) => !open)}
             className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-secondary text-muted-foreground transition-colors hover:text-foreground"
             aria-label="Notifications"
             title="Notifications"
           >
             <Bell className="h-4 w-4" />
+            {unreadCount > 0 ? (
+              <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-primary" />
+            ) : null}
           </button>
         </div>
+        {notificationsOpen ? (
+          <div className="absolute bottom-[calc(100%+8px)] left-0 right-0 z-50 rounded-xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur lg:bottom-auto lg:top-[calc(100%+8px)]">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-foreground">Notifications</p>
+              <button
+                type="button"
+                onClick={() => void markAllRead()}
+                disabled={!unreadCount}
+                className="text-xs text-primary disabled:text-muted-foreground"
+              >
+                Mark all read
+              </button>
+            </div>
+            <div className="mt-2 max-h-64 space-y-2 overflow-y-auto">
+              {isLoading ? (
+                <p className="rounded-lg border border-border/70 bg-secondary/30 p-3 text-sm text-muted-foreground">Loading notifications...</p>
+              ) : notifications.length ? (
+                notifications.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => void markRead(item.id)}
+                    className="w-full rounded-lg border border-border/70 bg-secondary/35 p-3 text-left transition-colors hover:border-primary/40 hover:bg-secondary/60"
+                  >
+                    <p className="text-sm font-medium text-foreground">{item.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{item.message}</p>
+                    <p className="mt-2 text-[11px] text-muted-foreground">{new Date(item.createdAt).toLocaleString()}</p>
+                  </button>
+                ))
+              ) : (
+                <p className="rounded-lg border border-border/70 bg-secondary/30 p-3 text-sm text-muted-foreground">No notifications yet.</p>
+              )}
+            </div>
+          </div>
+        ) : null}
       </div>
     </aside>
   );
@@ -461,6 +514,7 @@ function ConversationList({
   activeProjectId,
   filter,
   search,
+  newConversationHref,
   onFilterChange,
   onSearchChange,
 }: {
@@ -468,6 +522,7 @@ function ConversationList({
   activeProjectId: string | null;
   filter: FilterMode;
   search: string;
+  newConversationHref: string;
   onFilterChange: (filter: FilterMode) => void;
   onSearchChange: (search: string) => void;
 }) {
@@ -489,14 +544,14 @@ function ConversationList({
             <h1 className="font-display text-xl font-bold text-foreground">Messages</h1>
             <p className="mt-1 text-xs text-muted-foreground">Project rooms · live workflow</p>
           </div>
-          <button
-            type="button"
+          <a
+            href={newConversationHref}
             className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-secondary text-muted-foreground transition-colors hover:text-foreground"
             aria-label="New conversation"
-            title="New conversation"
+            title="Open project conversations"
           >
             <Plus className="h-4 w-4" />
-          </button>
+          </a>
         </div>
 
         <label className="mt-4 flex items-center gap-2 rounded-xl border border-border/70 bg-secondary/55 px-3 py-2 text-sm text-muted-foreground focus-within:border-primary/50 focus-within:shadow-[0_0_24px_oklch(0.72_0.2_151/0.11)]">
@@ -601,10 +656,31 @@ function ConversationList({
 function Header({
   conversation,
   connectionLabel,
+  messageSearchOpen,
+  proofsOnly,
+  toolsOpen,
+  onToggleSearch,
+  onAttachFile,
+  onToggleProofs,
+  onToggleTools,
 }: {
   conversation: ProjectConversation;
   connectionLabel: string;
+  messageSearchOpen: boolean;
+  proofsOnly: boolean;
+  toolsOpen: boolean;
+  onToggleSearch: () => void;
+  onAttachFile: () => void;
+  onToggleProofs: () => void;
+  onToggleTools: () => void;
 }) {
+  const actions = [
+    { label: "Search messages", icon: Search, onClick: onToggleSearch, active: messageSearchOpen },
+    { label: "Attach file", icon: Paperclip, onClick: onAttachFile, active: false },
+    { label: "Pinned proofs", icon: Pin, onClick: onToggleProofs, active: proofsOnly },
+    { label: "More options", icon: MoreHorizontal, onClick: onToggleTools, active: toolsOpen },
+  ];
+
   return (
     <header className="flex min-h-20 items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
       <div className="flex min-w-0 items-center gap-3">
@@ -638,16 +714,15 @@ function Header({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {[
-          { label: "Search messages", icon: Search },
-          { label: "Attach file", icon: Paperclip },
-          { label: "Pinned proofs", icon: Pin },
-          { label: "More options", icon: MoreHorizontal },
-        ].map((action) => (
+        {actions.map((action) => (
           <button
             key={action.label}
             type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-secondary text-muted-foreground transition-all hover:border-primary/40 hover:text-foreground"
+            onClick={action.onClick}
+            className={cn(
+              "inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-secondary text-muted-foreground transition-all hover:border-primary/40 hover:text-foreground",
+              action.active && "border-primary/50 bg-primary/12 text-primary",
+            )}
             aria-label={action.label}
             title={action.label}
           >
@@ -889,30 +964,33 @@ function MessageComposer({
   value,
   uploadProgress,
   isDragging,
+  fileInputRef,
+  smartReplies,
+  proofing,
   onChange,
   onSend,
   onDropFile,
   onPickFile,
   onDragState,
   onSmartReply,
+  onLoadSmartReplies,
+  onStoreProof,
 }: {
   value: string;
   uploadProgress: number | null;
   isDragging: boolean;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  smartReplies: string[];
+  proofing: boolean;
   onChange: (value: string) => void;
   onSend: () => void;
   onDropFile: (file: File) => void;
   onPickFile: (file: File) => void;
   onDragState: (isDragging: boolean) => void;
   onSmartReply: (reply: string) => void;
+  onLoadSmartReplies: () => void;
+  onStoreProof: () => void;
 }) {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const smartReplies = [
-    "I'll review this milestone soon.",
-    "Please upload the final deliverables.",
-    "Ready to store this onchain.",
-  ];
-
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     onDragState(false);
@@ -981,9 +1059,10 @@ function MessageComposer({
           <div className="flex items-center gap-1">
             <button
               type="button"
+              onClick={onLoadSmartReplies}
               className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              aria-label="Emoji reactions"
-              title="Emoji"
+              aria-label="Refresh smart replies"
+              title="Refresh smart replies"
             >
               <Sparkles className="h-4 w-4" />
             </button>
@@ -998,9 +1077,11 @@ function MessageComposer({
             </button>
             <button
               type="button"
+              onClick={onStoreProof}
+              disabled={proofing}
               className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              aria-label="Store agreement onchain"
-              title="Store agreement onchain"
+              aria-label="Store latest message proof"
+              title="Store latest message proof"
             >
               <Blocks className="h-4 w-4" />
             </button>
@@ -1035,11 +1116,16 @@ function ChatArea({
   uploadProgress,
   isDragging,
   typingLabel,
+  smartReplies,
+  proofing,
   onDraftChange,
   onSend,
   onFile,
   onDragState,
   onReaction,
+  onLoadSmartReplies,
+  onStoreProof,
+  onMarkRead,
 }: {
   conversation: ProjectConversation;
   connectionLabel: string;
@@ -1047,21 +1133,83 @@ function ChatArea({
   uploadProgress: number | null;
   isDragging: boolean;
   typingLabel: string | null;
+  smartReplies: string[];
+  proofing: boolean;
   onDraftChange: (value: string) => void;
   onSend: () => void;
   onFile: (file: File) => void;
   onDragState: (isDragging: boolean) => void;
   onReaction: (messageId: string, emoji: string) => void;
+  onLoadSmartReplies: () => void;
+  onStoreProof: () => void;
+  onMarkRead: () => void;
 }) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [messageSearchOpen, setMessageSearchOpen] = useState(false);
+  const [messageSearch, setMessageSearch] = useState("");
+  const [proofsOnly, setProofsOnly] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+
+  const visibleMessages = useMemo(() => {
+    const needle = messageSearch.trim().toLowerCase();
+
+    return conversation.messages.filter((message) => {
+      const matchesProof = !proofsOnly || message.type === "system" || Boolean(message.event);
+      const matchesSearch =
+        !needle ||
+        [message.content, message.author, message.role, message.event?.label, message.event?.txHash]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(needle));
+
+      return matchesProof && matchesSearch;
+    });
+  }, [conversation.messages, messageSearch, proofsOnly]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [conversation.messages.length, typingLabel]);
+  }, [visibleMessages.length, typingLabel]);
 
   return (
     <section className="glass-panel flex min-h-[calc(100vh-32px)] flex-col overflow-hidden rounded-2xl">
-      <Header conversation={conversation} connectionLabel={connectionLabel} />
+      <Header
+        conversation={conversation}
+        connectionLabel={connectionLabel}
+        messageSearchOpen={messageSearchOpen}
+        proofsOnly={proofsOnly}
+        toolsOpen={toolsOpen}
+        onToggleSearch={() => setMessageSearchOpen((open) => !open)}
+        onAttachFile={() => fileInputRef.current?.click()}
+        onToggleProofs={() => setProofsOnly((enabled) => !enabled)}
+        onToggleTools={() => setToolsOpen((open) => !open)}
+      />
+      {messageSearchOpen ? (
+        <div className="border-b border-border/70 bg-background/35 px-4 py-3">
+          <label className="flex items-center gap-2 rounded-xl border border-border/70 bg-secondary/55 px-3 py-2 text-sm text-muted-foreground focus-within:border-primary/50">
+            <Search className="h-4 w-4 shrink-0" />
+            <input
+              value={messageSearch}
+              onChange={(event) => setMessageSearch(event.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+              placeholder="Search messages in this room"
+            />
+          </label>
+        </div>
+      ) : null}
+      {toolsOpen ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border/70 bg-background/35 px-4 py-3 text-xs text-muted-foreground">
+          <Button size="sm" variant="outline" className="h-8 rounded-lg" onClick={onMarkRead}>
+            Mark read
+          </Button>
+          <Button size="sm" variant="outline" className="h-8 rounded-lg" onClick={onStoreProof} disabled={proofing}>
+            Store proof
+          </Button>
+          <Button size="sm" variant="outline" className="h-8 rounded-lg" asChild>
+            <Link to="/project-details">Project details</Link>
+          </Button>
+          <span className="ml-auto truncate font-mono">{conversation.projectId}</span>
+        </div>
+      ) : null}
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-5 px-4 py-5">
           <div className="mx-auto flex w-fit items-center gap-2 rounded-full border border-border/70 bg-secondary/55 px-3 py-1 text-xs text-muted-foreground">
@@ -1069,10 +1217,15 @@ function ChatArea({
             Workflow events are synced into this room
           </div>
           <AnimatePresence initial={false}>
-            {conversation.messages.map((message) => (
+            {visibleMessages.map((message) => (
               <MessageBubble key={message.id} message={message} onReaction={onReaction} />
             ))}
           </AnimatePresence>
+          {!visibleMessages.length ? (
+            <p className="rounded-xl border border-border/70 bg-secondary/35 p-4 text-center text-sm text-muted-foreground">
+              No messages match this view.
+            </p>
+          ) : null}
           {typingLabel ? (
             <motion.div
               initial={{ opacity: 0 }}
@@ -1092,12 +1245,17 @@ function ChatArea({
         value={draft}
         uploadProgress={uploadProgress}
         isDragging={isDragging}
+        fileInputRef={fileInputRef}
+        smartReplies={smartReplies}
+        proofing={proofing}
         onChange={onDraftChange}
         onSend={onSend}
         onDropFile={onFile}
         onPickFile={onFile}
         onDragState={onDragState}
         onSmartReply={onDraftChange}
+        onLoadSmartReplies={onLoadSmartReplies}
+        onStoreProof={onStoreProof}
       />
     </section>
   );
@@ -1116,7 +1274,11 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
   const [isDragging, setIsDragging] = useState(false);
   const [connectionLabel, setConnectionLabel] = useState("Preview mode");
   const [typingLabel, setTypingLabel] = useState<string | null>(null);
+  const [smartReplies, setSmartReplies] = useState(defaultSmartReplies);
+  const [proofing, setProofing] = useState(false);
+  const [showConversationList, setShowConversationList] = useState(true);
   const socketRef = useRef<ReturnType<typeof createMessagingSocket>>(null);
+  const readSyncKeyRef = useRef<string | null>(null);
 
   const selectedProjectId = activeProjectId ?? null;
   const navItems = useMemo(
@@ -1128,6 +1290,7 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
       conversations.find((conversation) => conversation.projectId === selectedProjectId) ?? null,
     [conversations, selectedProjectId],
   );
+  const newConversationHref = currentUserRole === "CLIENT" ? "/client/project-details" : "/freelancer/projects";
 
   useEffect(() => {
     let isActive = true;
@@ -1208,6 +1371,47 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
   }, [activeConversation?.id, activeConversation?.projectId, currentUserId]);
 
   useEffect(() => {
+    setSmartReplies(defaultSmartReplies);
+    readSyncKeyRef.current = null;
+  }, [activeConversation?.id]);
+
+  useEffect(() => {
+    if (!activeConversation || !currentUserId) {
+      return undefined;
+    }
+
+    const incomingMessageIds = activeConversation.messages
+      .filter((message) => message.sender !== "me" && message.sender !== "system" && !message.id.startsWith("local-"))
+      .map((message) => message.id);
+
+    if (!incomingMessageIds.length) {
+      return undefined;
+    }
+
+    const syncKey = `${activeConversation.id}:${incomingMessageIds.join(",")}`;
+    if (readSyncKeyRef.current === syncKey) {
+      return undefined;
+    }
+
+    readSyncKeyRef.current = syncKey;
+    const timer = window.setTimeout(() => {
+      void markConversationReadRequest(activeConversation.id).then((result) => {
+        if (!result) {
+          return;
+        }
+
+        setConversations((current) =>
+          current.map((conversation) =>
+            conversation.id === activeConversation.id ? { ...conversation, unread: 0 } : conversation,
+          ),
+        );
+      });
+    }, 650);
+
+    return () => window.clearTimeout(timer);
+  }, [activeConversation?.id, activeConversation?.messages, currentUserId]);
+
+  useEffect(() => {
     if (!selectedProjectId) {
       setConnectionLabel("Select a room");
       return undefined;
@@ -1237,13 +1441,48 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
 
       setConversations((current) =>
         updateConversationMessage(current, inbound.projectId, (messages) =>
-          messages.some((message) => message.id === inbound.id) ? messages : [...messages, inbound],
+          messages.some((message) => message.id === inbound.id)
+            ? messages
+            : [
+                ...messages.filter(
+                  (message) =>
+                    !(
+                      inbound.sender === "me" &&
+                      (message.id.startsWith("local-") || message.id.startsWith("file-")) &&
+                      message.content === inbound.content
+                    ),
+                ),
+                inbound,
+              ],
         ),
       );
     });
 
+    const applySeenReceipt = (payload: { projectId?: string; userId?: string; messageId?: string; messageIds?: string[] }) => {
+      if (!payload.projectId || payload.userId === currentUserId) {
+        return;
+      }
+
+      const seenIds = new Set([...(payload.messageIds ?? []), payload.messageId].filter(Boolean) as string[]);
+      if (!seenIds.size) {
+        return;
+      }
+
+      setConversations((current) =>
+        updateConversationMessage(current, payload.projectId as string, (messages) =>
+          messages.map((message) =>
+            message.sender === "me" && seenIds.has(message.id) ? { ...message, status: "seen" } : message,
+          ),
+        ),
+      );
+    };
+
+    socket.on("message_seen", applySeenReceipt);
+    socket.on("message_read", applySeenReceipt);
+    socket.on("conversation_seen", applySeenReceipt);
+
     socket.on("typing_start", (payload: { userId?: string; projectId?: string }) => {
-      if (payload.projectId === selectedProjectId) {
+      if (payload.projectId === selectedProjectId && payload.userId !== currentUserId) {
         setTypingLabel("Client is typing...");
       }
     });
@@ -1287,19 +1526,30 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
 
     setDraft("");
     addMessage(activeConversation.projectId, optimisticMessage);
-    socketRef.current?.emit("send_message", { projectId: activeConversation.projectId, content });
 
     try {
-      await sendMessageRequest({ projectId: activeConversation.projectId, content });
+      const savedMessage = await sendMessageRequest({ projectId: activeConversation.projectId, content });
+      const confirmedMessage = savedMessage
+        ? mapApiMessage(savedMessage, activeConversation.projectId, currentUserId)
+        : null;
+
       window.setTimeout(() => {
         setConversations((current) =>
           updateConversationMessage(current, activeConversation.projectId, (messages) =>
-            messages.map((message) =>
-              message.id === optimisticMessage.id ? { ...message, status: "seen" } : message,
-            ),
+            confirmedMessage
+              ? [
+                  ...messages.filter(
+                    (message) =>
+                      message.id !== optimisticMessage.id && message.id !== confirmedMessage.id,
+                  ),
+                  confirmedMessage,
+                ]
+              : messages.map((message) =>
+                  message.id === optimisticMessage.id ? { ...message, status: "delivered" } : message,
+                ),
           ),
         );
-      }, 900);
+      }, 250);
     } catch (_error) {
       setConversations((current) =>
         updateConversationMessage(current, activeConversation.projectId, (messages) =>
@@ -1352,14 +1602,116 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
     setDraft("");
 
     try {
-      await uploadAttachmentRequest({
+      const savedMessage = await uploadAttachmentRequest({
         projectId: activeConversation.projectId,
         file,
         content: optimisticMessage.content,
         onProgress: setUploadProgress,
       });
+      const confirmedMessage = savedMessage
+        ? mapApiMessage(savedMessage, activeConversation.projectId, currentUserId)
+        : null;
+
+      if (confirmedMessage) {
+        setConversations((current) =>
+          updateConversationMessage(current, activeConversation.projectId, (messages) => [
+            ...messages.filter(
+              (message) =>
+                message.id !== optimisticMessage.id &&
+                message.id !== confirmedMessage.id &&
+                !(
+                  message.sender === "me" &&
+                  message.content === confirmedMessage.content &&
+                  message.attachments?.[0]?.fileName === confirmedMessage.attachments?.[0]?.fileName
+                ),
+            ),
+            confirmedMessage,
+          ]),
+        );
+      }
     } finally {
       window.setTimeout(() => setUploadProgress(null), 450);
+    }
+  };
+
+  const handleLoadSmartReplies = async () => {
+    if (!activeConversation) {
+      return;
+    }
+
+    const suggestions = await fetchSmartReplySuggestions(activeConversation.id);
+    if (suggestions?.length) {
+      setSmartReplies(suggestions.map((reply) => decodeMessageText(reply)));
+      toast.success("Smart replies refreshed");
+      return;
+    }
+
+    toast("No new suggestions available");
+  };
+
+  const handleMarkConversationRead = async () => {
+    if (!activeConversation) {
+      return;
+    }
+
+    const result = await markConversationReadRequest(activeConversation.id);
+    if (!result) {
+      toast.error("Could not mark conversation as read");
+      return;
+    }
+
+    setConversations((current) =>
+      current.map((conversation) =>
+        conversation.id === activeConversation.id ? { ...conversation, unread: 0 } : conversation,
+      ),
+    );
+    toast.success("Conversation marked read");
+  };
+
+  const handleStoreProof = async () => {
+    if (!activeConversation) {
+      return;
+    }
+
+    const target = [...activeConversation.messages]
+      .reverse()
+      .find((message) => message.sender === "me" && message.type !== "system" && !message.id.startsWith("local-"));
+
+    if (!target) {
+      toast.error("Send a message before storing a proof");
+      return;
+    }
+
+    setProofing(true);
+    try {
+      const result = await createMessageProofRequest(target.id);
+
+      if (!result) {
+        throw new Error("Proof request failed");
+      }
+
+      const proofMessage: ChatMessage = {
+        id: `proof-${target.id}-${Date.now()}`,
+        projectId: activeConversation.projectId,
+        sender: "system",
+        author: "ProofChain",
+        content: result.submittedOnchain ? "Message proof stored onchain" : "Message proof hash prepared",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        type: "system",
+        event: {
+          label: "Message proof",
+          txHash: result.txHash ?? result.messageHash,
+          network: "Base Sepolia",
+          verified: Boolean(result.messageHash),
+        },
+      };
+
+      addMessage(activeConversation.projectId, proofMessage);
+      toast.success(result.submittedOnchain ? "Proof stored onchain" : "Proof hash prepared");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Proof request failed");
+    } finally {
+      setProofing(false);
     }
   };
 
@@ -1409,10 +1761,12 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
           </Link>
           <button
             type="button"
+            onClick={() => setShowConversationList((open) => !open)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-secondary text-muted-foreground"
             aria-label="Conversation menu"
+            title={showConversationList ? "Hide conversations" : "Show conversations"}
           >
-            <ChevronDown className="h-4 w-4" />
+            <ChevronDown className={cn("h-4 w-4 transition-transform", showConversationList ? "rotate-180" : "")} />
           </button>
         </div>
 
@@ -1423,14 +1777,17 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
             navItems={navItems}
             profile={currentUserProfile}
           />
-          <ConversationList
-            conversations={conversations}
-            activeProjectId={selectedProjectId}
-            filter={filter}
-            search={search}
-            onFilterChange={setFilter}
-            onSearchChange={setSearch}
-          />
+          <div className={cn(showConversationList ? "block" : "hidden lg:block")}>
+            <ConversationList
+              conversations={conversations}
+              activeProjectId={selectedProjectId}
+              filter={filter}
+              search={search}
+              newConversationHref={newConversationHref}
+              onFilterChange={setFilter}
+              onSearchChange={setSearch}
+            />
+          </div>
           {activeConversation ? (
             <ChatArea
               conversation={activeConversation}
@@ -1439,11 +1796,16 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
               uploadProgress={uploadProgress}
               isDragging={isDragging}
               typingLabel={typingLabel}
+              smartReplies={smartReplies}
+              proofing={proofing}
               onDraftChange={handleDraftChange}
               onSend={handleSend}
               onFile={handleFile}
               onDragState={setIsDragging}
               onReaction={handleReaction}
+              onLoadSmartReplies={handleLoadSmartReplies}
+              onStoreProof={handleStoreProof}
+              onMarkRead={handleMarkConversationRead}
             />
           ) : (
             <EmptyState />

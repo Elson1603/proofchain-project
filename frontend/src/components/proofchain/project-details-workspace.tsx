@@ -36,6 +36,7 @@ export function ProjectDetailsWorkspace({ mode, navItems }: ProjectDetailsWorksp
   const [user, setUser] = useState<ApiUser | null>(null);
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [availableProjects, setAvailableProjects] = useState<ApiProject[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [acceptingProjectId, setAcceptingProjectId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -72,6 +73,11 @@ export function ProjectDetailsWorkspace({ mode, navItems }: ProjectDetailsWorksp
         setUser(me);
         setProjects(nextProjects);
         setAvailableProjects(nextAvailableProjects);
+        setSelectedProjectId((currentProjectId) =>
+          currentProjectId && nextProjects.some((nextProject) => nextProject.id === currentProjectId)
+            ? currentProjectId
+            : (nextProjects[0]?.id ?? null),
+        );
         setLoading(false);
       }
     }
@@ -83,7 +89,7 @@ export function ProjectDetailsWorkspace({ mode, navItems }: ProjectDetailsWorksp
     };
   }, [mode]);
 
-  const project = projects[0] ?? null;
+  const project = projects.find((currentProject) => currentProject.id === selectedProjectId) ?? projects[0] ?? null;
 
   const handleAcceptProject = async (projectToAccept: ApiProject) => {
     if (!user) {
@@ -111,6 +117,7 @@ export function ProjectDetailsWorkspace({ mode, navItems }: ProjectDetailsWorksp
         acceptedWithContext,
         ...current.filter((currentProject) => currentProject.id !== acceptedWithContext.id),
       ]);
+      setSelectedProjectId(acceptedWithContext.id);
       setAvailableProjects((current) => current.filter((currentProject) => currentProject.id !== projectToAccept.id));
       toast.success("Project accepted");
     } catch (error) {
@@ -137,13 +144,27 @@ export function ProjectDetailsWorkspace({ mode, navItems }: ProjectDetailsWorksp
         <EmptyProjectState message="Connect your wallet to load your project workspace." />
       ) : isFreelancer ? (
         <FreelancerProjectsView
-          project={project}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={setSelectedProjectId}
           availableProjects={availableProjects}
           acceptingProjectId={acceptingProjectId}
           onAcceptProject={handleAcceptProject}
         />
       ) : project ? (
-        <ProjectView project={project} mode={mode} />
+        <ProjectWorkspaceView
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={setSelectedProjectId}
+          project={project}
+          mode={mode}
+          owner={user}
+          onCreated={(createdProject) => {
+            const createdWithOwner = user ? { ...createdProject, owner: user } : createdProject;
+            setProjects((current) => [createdWithOwner, ...current]);
+            setSelectedProjectId(createdProject.id);
+          }}
+        />
       ) : (
         <EmptyProjectState
           message="No real projects found yet. Create a project to populate this page."
@@ -151,7 +172,11 @@ export function ProjectDetailsWorkspace({ mode, navItems }: ProjectDetailsWorksp
             mode === "client" ? (
               <CreateProjectDialog
                 owner={user}
-                onCreated={(createdProject) => setProjects((current) => [createdProject, ...current])}
+                onCreated={(createdProject) => {
+                  const createdWithOwner = user ? { ...createdProject, owner: user } : createdProject;
+                  setProjects((current) => [createdWithOwner, ...current]);
+                  setSelectedProjectId(createdProject.id);
+                }}
               />
             ) : null
           }
@@ -161,18 +186,55 @@ export function ProjectDetailsWorkspace({ mode, navItems }: ProjectDetailsWorksp
   );
 }
 
-function FreelancerProjectsView({
+function ProjectWorkspaceView({
+  projects,
+  selectedProjectId,
+  onSelectProject,
   project,
+  mode,
+  owner,
+  onCreated,
+}: {
+  projects: ApiProject[];
+  selectedProjectId: string | null;
+  onSelectProject: (projectId: string) => void;
+  project: ApiProject;
+  mode: ProjectDetailsMode;
+  owner: ApiUser | null;
+  onCreated?: (project: ApiProject) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <ProjectHistory
+        projects={projects}
+        selectedProjectId={selectedProjectId}
+        onSelectProject={onSelectProject}
+        title={mode === "client" ? "Client project history" : "Project history"}
+        action={mode === "client" ? <CreateProjectDialog owner={owner} onCreated={onCreated} triggerLabel="New project" /> : null}
+      />
+      <ProjectView project={project} mode={mode} />
+    </div>
+  );
+}
+
+function FreelancerProjectsView({
+  projects,
+  selectedProjectId,
+  onSelectProject,
   availableProjects,
   acceptingProjectId,
   onAcceptProject,
 }: {
-  project: ApiProject | null;
+  projects: ApiProject[];
+  selectedProjectId: string | null;
+  onSelectProject: (projectId: string) => void;
   availableProjects: ApiProject[];
   acceptingProjectId: string | null;
   onAcceptProject: (project: ApiProject) => void;
 }) {
-  if (!project && !availableProjects.length) {
+  const project = projects.find((currentProject) => currentProject.id === selectedProjectId) ?? projects[0] ?? null;
+
+  if (!projects.length && !availableProjects.length) {
     return (
       <EmptyProjectState message="No assigned or open projects found yet. Ask a client to create an open project, then accept it here." />
     );
@@ -180,6 +242,14 @@ function FreelancerProjectsView({
 
   return (
     <div className="space-y-4">
+      {projects.length ? (
+        <ProjectHistory
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={onSelectProject}
+          title="Assigned project history"
+        />
+      ) : null}
       {project ? <ProjectView project={project} mode="freelancer" /> : null}
       <AvailableProjectsSection
         projects={availableProjects}
@@ -187,6 +257,67 @@ function FreelancerProjectsView({
         onAcceptProject={onAcceptProject}
       />
     </div>
+  );
+}
+
+function ProjectHistory({
+  projects,
+  selectedProjectId,
+  onSelectProject,
+  title,
+  action,
+}: {
+  projects: ApiProject[];
+  selectedProjectId: string | null;
+  onSelectProject: (projectId: string) => void;
+  title: string;
+  action?: ReactNode;
+}) {
+  const totalBudget = projects.reduce((sum, project) => sum + (project.budget ?? 0), 0);
+
+  return (
+    <section className="glass-panel rounded-xl p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-foreground">{title}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {projects.length} project{projects.length === 1 ? "" : "s"} · {formatMoney(totalBudget)} total budget
+          </p>
+        </div>
+        {action}
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {projects.map((project) => {
+          const isSelected = project.id === selectedProjectId;
+          const milestoneCount = project.milestones?.length ?? 0;
+
+          return (
+            <button
+              key={project.id}
+              type="button"
+              onClick={() => onSelectProject(project.id)}
+              className={`surface-panel rounded-xl border p-4 text-left transition hover:border-primary/45 hover:bg-primary/5 ${
+                isSelected ? "border-primary/60 bg-primary/10" : "border-border/70"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-foreground">{project.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(project.createdAt)}</p>
+                </div>
+                <StatusPill label={normalizeStatus(project.status)} />
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                <span>{formatMoney(project.budget ?? 0)}</span>
+                <span className="text-right">{milestoneCount} milestone{milestoneCount === 1 ? "" : "s"}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -407,10 +538,10 @@ function ProjectUtilityButtons({ project, tokenId }: { project: ApiProject; toke
           </Link>
         </Button>
       ) : (
-        <Button size="sm" variant="outline" className="gap-2" disabled>
+        <span className="inline-flex h-9 items-center gap-2 rounded-md border border-border/70 bg-secondary px-3 text-sm text-muted-foreground">
           <ShieldCheck className="h-4 w-4" />
           No certificate
-        </Button>
+        </span>
       )}
     </>
   );
