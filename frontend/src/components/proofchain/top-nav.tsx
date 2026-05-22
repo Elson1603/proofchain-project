@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Bell, Command, Dot, Wallet2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/proofchain/theme-toggle";
 import { useNotifications } from "@/hooks/use-notifications";
 import { shortenWalletAddress, useWalletAddress } from "@/hooks/use-wallet-address";
 
@@ -71,6 +72,7 @@ export function ProofChainTopNav() {
             <Dot className="h-4 w-4 text-success" />
             Base Sepolia Live
           </div>
+          <ThemeToggle />
           <button
             type="button"
             onClick={() => {

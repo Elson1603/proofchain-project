@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { LockKeyhole, Wallet, ShieldCheck, UserRound } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/proofchain/theme-toggle";
 import { connectWallet } from "@/lib/escrow";
 import { API_BASE_URL } from "@/lib/proofchain-api";
 
@@ -111,6 +112,9 @@ function AuthPage() {
   return (
     <div className="relative min-h-screen overflow-hidden px-4 py-12 sm:px-6 lg:px-8">
       <div className="ambient-grid pointer-events-none absolute inset-0 opacity-75" />
+      <div className="absolute right-4 top-4 z-10 sm:right-6">
+        <ThemeToggle showLabel />
+      </div>
       <div className="mx-auto grid w-full max-w-5xl gap-6 lg:grid-cols-[1fr_1.1fr]">
         <div className="glass-panel rounded-xl p-6">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Secure onboarding</p>

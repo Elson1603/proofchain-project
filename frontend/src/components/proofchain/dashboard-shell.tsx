@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Bell, Search, WalletCards } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/proofchain/theme-toggle";
 import { useNotifications } from "@/hooks/use-notifications";
 import { shortenWalletAddress, useWalletAddress } from "@/hooks/use-wallet-address";
 
@@ -116,6 +117,7 @@ export function DashboardShell({
                   </span>
                 )}
               </button>
+              <ThemeToggle />
               <Link
                 to="/auth"
                 className="inline-flex max-w-40 items-center gap-2 rounded-full border border-border/80 bg-secondary px-3 py-1 text-xs text-muted-foreground"

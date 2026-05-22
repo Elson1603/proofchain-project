@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider, themeBootScript } from "@/lib/theme";
 
 function NotFoundComponent() {
   return (
@@ -99,8 +100,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
         <HeadContent />
       </head>
       <body>
@@ -122,10 +124,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <UGFProvider mode={ugfMode}>
-        <Outlet />
-        {mounted ? <Toaster /> : null}
-      </UGFProvider>
+      <ThemeProvider>
+        <UGFProvider mode={ugfMode}>
+          <Outlet />
+          {mounted ? <Toaster /> : null}
+        </UGFProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

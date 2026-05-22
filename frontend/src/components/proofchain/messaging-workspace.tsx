@@ -35,6 +35,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type DragEvent, type RefObject } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/proofchain/theme-toggle";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useNotifications } from "@/hooks/use-notifications";
@@ -97,7 +98,7 @@ const statusStyles: Record<ProjectConversation["status"], string> = {
   Active: "border-primary/40 bg-primary/12 text-primary",
   Review: "border-info/40 bg-info/12 text-info",
   Funded: "border-emerald-300/30 bg-emerald-300/10 text-emerald-200",
-  Completed: "border-zinc-300/30 bg-zinc-300/10 text-zinc-200",
+  Completed: "border-border/70 bg-secondary text-foreground",
 };
 
 function resolveNavigationItems(role?: ApiMessagingProfile["role"] | null) {
@@ -394,14 +395,17 @@ function Sidebar({
             <span className="block truncate text-xs text-muted-foreground">Freelance OS</span>
           </span>
         </Link>
-        <button
-          type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-secondary text-muted-foreground lg:hidden"
-          onClick={onClose}
-          aria-label="Close navigation"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle className="h-8 w-8" />
+          <button
+            type="button"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-secondary text-muted-foreground lg:hidden"
+            onClick={onClose}
+            aria-label="Close navigation"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div className="mt-5 rounded-2xl border border-primary/20 bg-primary/8 p-3">
@@ -1759,15 +1763,18 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
           <Link to="/messages" className="font-display text-sm font-bold text-foreground">
             ProofChain Messages
           </Link>
-          <button
-            type="button"
-            onClick={() => setShowConversationList((open) => !open)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-secondary text-muted-foreground"
-            aria-label="Conversation menu"
-            title={showConversationList ? "Hide conversations" : "Show conversations"}
-          >
-            <ChevronDown className={cn("h-4 w-4 transition-transform", showConversationList ? "rotate-180" : "")} />
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button
+              type="button"
+              onClick={() => setShowConversationList((open) => !open)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-secondary text-muted-foreground"
+              aria-label="Conversation menu"
+              title={showConversationList ? "Hide conversations" : "Show conversations"}
+            >
+              <ChevronDown className={cn("h-4 w-4 transition-transform", showConversationList ? "rotate-180" : "")} />
+            </button>
+          </div>
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[240px_minmax(290px,380px)_minmax(0,1fr)]">
