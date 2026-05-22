@@ -202,7 +202,7 @@ export function LandingHero() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="space-y-3"
         >
-          <div className="glass-panel relative overflow-hidden rounded-xl p-5">
+          <div className="glass-panel shine-panel relative overflow-hidden rounded-xl p-5">
             <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-info/20 to-transparent" />
             <div className="relative flex items-center justify-between border-b border-border/60 pb-4">
               <p className="font-semibold text-foreground">Transaction Command Center</p>
@@ -216,7 +216,7 @@ export function LandingHero() {
                 <div className="surface-panel rounded-lg p-3 text-sm text-muted-foreground">Loading live activity...</div>
               ) : events.length ? (
                 events.map((item) => (
-                <div key={item.detail} className="surface-panel hover-lift rounded-lg p-3">
+                <div key={item.detail} className="surface-panel activity-row rounded-lg p-3">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>{item.type}</span>
                     <span>{item.time}</span>
@@ -241,7 +241,7 @@ export function LandingHero() {
             </motion.div>
           </div>
 
-          <div className="glass-panel rounded-xl p-3">
+          <div className="glass-panel shine-panel rounded-xl p-3">
             <p className="text-xs text-muted-foreground">Command palette</p>
             <div className="mt-2 flex items-center justify-between rounded-lg border border-border/70 bg-secondary/40 px-3 py-2 text-sm text-muted-foreground">
               <span>Type a command or search project...</span>
@@ -271,7 +271,7 @@ export function FeatureGrid() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-100px" }}
               transition={{ delay: index * 0.04 }}
-              className={`glass-panel hover-lift rounded-xl p-4 ${
+              className={`glass-panel shine-panel interactive-card rounded-xl p-4 ${
                 index % 3 === 0 ? "sm:col-span-2" : ""
               } ${index === 5 ? "lg:col-span-2" : ""}`}
             >
@@ -414,7 +414,7 @@ export function HowItWorks() {
                 key={item.title}
                 type="button"
                 onClick={() => setActiveStep(index)}
-                className={`group w-full rounded-lg border p-4 text-left transition-all ${
+                className={`group interactive-card w-full rounded-lg border p-4 text-left ${
                   activeStep === index
                     ? "border-primary/55 bg-primary/10 shadow-[var(--shadow-soft)]"
                     : "border-border/70 bg-surface/70 hover:border-primary/35 hover:bg-secondary/50"
@@ -445,7 +445,7 @@ export function HowItWorks() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.28 }}
-            className="glass-panel overflow-hidden rounded-xl"
+            className="glass-panel shine-panel overflow-hidden rounded-xl"
           >
             <div className="border-b border-border/60 bg-secondary/30 p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -562,7 +562,7 @@ export function LiveTransactions() {
             <motion.div
               key={event.detail}
               whileHover={{ scale: 1.01 }}
-              className="surface-panel rounded-lg p-3 transition-colors hover:border-primary/40"
+              className="surface-panel activity-row rounded-lg p-3"
             >
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>{event.type}</span>
@@ -603,7 +603,7 @@ export function TestimonialsSection() {
               copy: "UGF payments, Base Sepolia transactions, and certificates power the live activity feed.",
             },
           ].map((item) => (
-            <article key={item.title} className="glass-panel rounded-xl p-5">
+            <article key={item.title} className="glass-panel shine-panel interactive-card rounded-xl p-5">
               <CheckCircle2 className="h-5 w-5 text-primary" />
               <p className="mt-5 font-medium text-foreground">{item.title}</p>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.copy}</p>

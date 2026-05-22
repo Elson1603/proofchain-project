@@ -464,7 +464,7 @@ function Sidebar({
           <button
             type="button"
             onClick={() => setNotificationsOpen((open) => !open)}
-            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-secondary text-muted-foreground transition-colors hover:text-foreground"
+            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-secondary text-muted-foreground transition-all duration-200 hover:-translate-y-0.5 hover:text-foreground active:translate-y-0"
             aria-label="Notifications"
             title="Notifications"
           >
@@ -475,7 +475,7 @@ function Sidebar({
           </button>
         </div>
         {notificationsOpen ? (
-          <div className="absolute bottom-[calc(100%+8px)] left-0 right-0 z-50 rounded-xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur lg:bottom-auto lg:top-[calc(100%+8px)]">
+          <div className="menu-pop absolute bottom-[calc(100%+8px)] left-0 right-0 z-50 rounded-xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur lg:bottom-auto lg:top-[calc(100%+8px)]">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold text-foreground">Notifications</p>
               <button
@@ -496,7 +496,7 @@ function Sidebar({
                     key={item.id}
                     type="button"
                     onClick={() => void openNotification(item, markRead, () => setNotificationsOpen(false))}
-                    className="w-full rounded-lg border border-border/70 bg-secondary/35 p-3 text-left transition-colors hover:border-primary/40 hover:bg-secondary/60"
+                    className="activity-row w-full rounded-lg border border-border/70 bg-secondary/35 p-3 text-left hover:bg-secondary/60"
                   >
                     <p className="text-sm font-medium text-foreground">{item.title}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{item.message}</p>
@@ -542,7 +542,7 @@ function ConversationList({
   });
 
   return (
-    <section className="glass-panel flex min-h-[520px] flex-col rounded-2xl">
+    <section className="glass-panel shine-panel flex min-h-[520px] flex-col rounded-2xl">
       <div className="border-b border-border/70 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -603,7 +603,7 @@ function ConversationList({
                   to="/projects/$id/chat"
                   params={{ id: conversation.projectId }}
                   className={cn(
-                    "group block rounded-2xl border p-3 transition-all duration-200",
+                    "group interactive-card block rounded-2xl border p-3",
                     active
                       ? "border-primary/55 bg-primary/10 shadow-[0_0_32px_oklch(0.72_0.2_151/0.13)]"
                       : "border-border/60 bg-surface/65 hover:scale-[1.01] hover:border-primary/35 hover:bg-surface-elevated/70",
@@ -936,7 +936,7 @@ function MessageBubble({
 
 function EmptyState() {
   return (
-    <div className="glass-panel flex min-h-[520px] items-center justify-center rounded-2xl p-6">
+    <div className="glass-panel shine-panel flex min-h-[520px] items-center justify-center rounded-2xl p-6">
       <div className="relative w-full max-w-md text-center">
         <div className="mx-auto grid h-44 w-64 grid-cols-6 gap-2 rounded-2xl border border-border/70 bg-surface/75 p-4">
           {Array.from({ length: 24 }).map((_, index) => (
@@ -1176,7 +1176,7 @@ function ChatArea({
   }, [visibleMessages.length, typingLabel]);
 
   return (
-    <section className="glass-panel flex min-h-[calc(100vh-32px)] flex-col overflow-hidden rounded-2xl">
+    <section className="glass-panel shine-panel flex min-h-[calc(100vh-32px)] flex-col overflow-hidden rounded-2xl">
       <Header
         conversation={conversation}
         connectionLabel={connectionLabel}
@@ -1752,7 +1752,7 @@ export function MessagingWorkspace({ activeProjectId }: MessagingWorkspaceProps)
   return (
     <div className="min-h-screen bg-background px-3 py-4 text-foreground sm:px-4">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
-        <div className="glass-panel flex items-center justify-between rounded-2xl px-3 py-2 lg:hidden">
+        <div className="glass-panel shine-panel flex items-center justify-between rounded-2xl px-3 py-2 lg:hidden">
           <button
             type="button"
             onClick={() => setShowNav(true)}

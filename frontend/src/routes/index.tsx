@@ -45,7 +45,7 @@ function IndexPage() {
   );
 
   return (
-    <div className="relative min-h-screen overflow-hidden" onMouseMove={handleMove}>
+    <div className="page-reveal relative min-h-screen overflow-hidden" onMouseMove={handleMove}>
       <motion.div className="pointer-events-none absolute inset-0" style={{ background: maskImage }} />
       <ProofChainTopNav />
       <main>

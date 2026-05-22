@@ -80,7 +80,7 @@ export function ProofChainTopNav() {
               setCommandOpen((open) => !open);
               setNotificationOpen(false);
             }}
-            className="hidden h-9 w-9 items-center justify-center rounded-md border border-border/80 bg-secondary text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
+            className="hidden h-9 w-9 items-center justify-center rounded-md border border-border/80 bg-secondary text-muted-foreground transition-all duration-200 hover:-translate-y-0.5 hover:text-foreground active:translate-y-0 sm:inline-flex"
             aria-label="Command palette"
           >
             <Command className="h-4 w-4" />
@@ -91,7 +91,7 @@ export function ProofChainTopNav() {
               setNotificationOpen((open) => !open);
               setCommandOpen(false);
             }}
-            className="relative hidden h-9 w-9 items-center justify-center rounded-md border border-border/80 bg-secondary text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
+            className="relative hidden h-9 w-9 items-center justify-center rounded-md border border-border/80 bg-secondary text-muted-foreground transition-all duration-200 hover:-translate-y-0.5 hover:text-foreground active:translate-y-0 sm:inline-flex"
             aria-label="Notifications"
           >
             <Bell className="h-4 w-4" />
@@ -113,7 +113,7 @@ export function ProofChainTopNav() {
           </Button>
 
           {commandOpen ? (
-            <div className="absolute right-0 top-12 z-50 w-[min(calc(100vw-2rem),22rem)] rounded-xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur">
+            <div className="menu-pop absolute right-0 top-12 z-50 w-[min(calc(100vw-2rem),22rem)] rounded-xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur">
               <p className="text-xs font-medium uppercase text-primary">Command palette</p>
               <input
                 value={commandQuery}
@@ -128,7 +128,7 @@ export function ProofChainTopNav() {
                     key={`${item.label}-${item.to}`}
                     to={item.to}
                     onClick={() => setCommandOpen(false)}
-                    className="rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    className="rounded-lg px-3 py-2 text-sm text-muted-foreground transition-all duration-200 hover:translate-x-0.5 hover:bg-secondary hover:text-foreground"
                   >
                     {item.label}
                   </Link>
@@ -138,7 +138,7 @@ export function ProofChainTopNav() {
           ) : null}
 
           {notificationOpen ? (
-            <div className="absolute right-0 top-12 z-50 w-[min(calc(100vw-2rem),23rem)] rounded-xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur">
+            <div className="menu-pop absolute right-0 top-12 z-50 w-[min(calc(100vw-2rem),23rem)] rounded-xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-foreground">Notifications</p>
                 <button
@@ -159,7 +159,7 @@ export function ProofChainTopNav() {
                       key={item.id}
                       type="button"
                       onClick={() => void openNotification(item, markRead, () => setNotificationOpen(false))}
-                      className="w-full rounded-lg border border-border/70 bg-secondary/35 p-3 text-left transition-colors hover:border-primary/40 hover:bg-secondary/60"
+                      className="activity-row w-full rounded-lg border border-border/70 bg-secondary/35 p-3 text-left hover:bg-secondary/60"
                     >
                       <p className="text-sm font-medium text-foreground">{item.title}</p>
                       <p className="mt-1 text-xs text-muted-foreground">{item.message}</p>

@@ -59,9 +59,9 @@ export function DashboardShell({
   const visibleNotificationCount = notificationsLoading && typeof notificationCount === "number" ? notificationCount : unreadCount;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="page-reveal min-h-screen bg-background">
       <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[220px_1fr] lg:px-8">
-        <aside className="glass-panel h-fit rounded-xl p-4">
+        <aside className="glass-panel shine-panel h-fit rounded-xl p-4">
           <p className="font-display text-base font-bold text-foreground">ProofChain</p>
           <p className="mt-1 text-xs text-muted-foreground">{workspaceLabel}</p>
           <nav className="mt-6 space-y-1">
@@ -71,10 +71,10 @@ export function DashboardShell({
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`flex rounded-md px-3 py-2 text-sm transition-colors ${
+                  className={`flex rounded-md px-3 py-2 text-sm transition-all duration-200 ${
                     active
                       ? "bg-secondary text-foreground"
-                      : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                      : "text-muted-foreground hover:translate-x-0.5 hover:bg-secondary/60 hover:text-foreground"
                   }`}
                 >
                   {item.label}
@@ -84,8 +84,8 @@ export function DashboardShell({
           </nav>
         </aside>
 
-        <main className="space-y-5">
-          <div className="glass-panel relative z-30 flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3">
+        <main className="stagger-in space-y-5">
+          <div className="glass-panel shine-panel relative z-30 flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3">
             <div>
               <h1 className="font-display text-2xl font-bold text-foreground">{title}</h1>
               <p className="text-sm text-muted-foreground">{subtitle}</p>
@@ -97,7 +97,7 @@ export function DashboardShell({
                   setSearchOpen((open) => !open);
                   setNotificationsOpen(false);
                 }}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/80 bg-secondary text-muted-foreground transition-colors hover:text-foreground"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/80 bg-secondary text-muted-foreground transition-all duration-200 hover:-translate-y-0.5 hover:text-foreground active:translate-y-0"
                 aria-label="Search"
               >
                 <Search className="h-4 w-4" />
@@ -108,7 +108,7 @@ export function DashboardShell({
                   setNotificationsOpen((open) => !open);
                   setSearchOpen(false);
                 }}
-                className="relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/80 bg-secondary text-muted-foreground transition-colors hover:text-foreground"
+                className="relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/80 bg-secondary text-muted-foreground transition-all duration-200 hover:-translate-y-0.5 hover:text-foreground active:translate-y-0"
                 aria-label="Notifications"
               >
                 <Bell className="h-4 w-4" />
@@ -121,7 +121,7 @@ export function DashboardShell({
               <ThemeToggle />
               <Link
                 to="/auth"
-                className="inline-flex max-w-40 items-center gap-2 rounded-full border border-border/80 bg-secondary px-3 py-1 text-xs text-muted-foreground"
+                className="inline-flex max-w-40 items-center gap-2 rounded-full border border-border/80 bg-secondary px-3 py-1 text-xs text-muted-foreground transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:text-foreground"
                 aria-label={walletAddress ? `Connected wallet ${walletAddress}` : "Wallet connected"}
                 title={walletAddress ?? "Wallet connected"}
               >
@@ -131,7 +131,7 @@ export function DashboardShell({
             </div>
 
             {searchOpen ? (
-              <div className="w-full rounded-lg border border-border/70 bg-background/80 p-3">
+              <div className="menu-pop w-full rounded-lg border border-border/70 bg-background/80 p-3">
                 <label className="flex items-center gap-2 rounded-md border border-border/70 bg-secondary/50 px-3 py-2 text-sm">
                   <Search className="h-4 w-4 text-muted-foreground" />
                   <input
@@ -148,7 +148,7 @@ export function DashboardShell({
                       key={item.to}
                       to={item.to}
                       onClick={() => setSearchOpen(false)}
-                      className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                      className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-all duration-200 hover:translate-x-0.5 hover:bg-secondary hover:text-foreground"
                     >
                       {item.label}
                     </Link>
@@ -165,7 +165,7 @@ export function DashboardShell({
                 aria-label="Close notifications"
                 onClick={() => setNotificationsOpen(false)}
               />
-              <div className="fixed right-4 top-24 z-[100] w-96 max-w-[calc(100vw-2rem)] rounded-xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur-xl sm:right-8">
+              <div className="menu-pop fixed right-4 top-24 z-[100] w-96 max-w-[calc(100vw-2rem)] rounded-xl border border-border/70 bg-background/95 p-3 shadow-2xl backdrop-blur-xl sm:right-8">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-foreground">Notifications</p>
                   <Button
@@ -188,7 +188,7 @@ export function DashboardShell({
                         key={item.id}
                         type="button"
                         onClick={() => void openNotification(item, markRead, () => setNotificationsOpen(false))}
-                        className="w-full rounded-lg border border-border/70 bg-secondary/35 p-3 text-left transition-colors hover:border-primary/40 hover:bg-secondary/60"
+                        className="activity-row w-full rounded-lg border border-border/70 bg-secondary/35 p-3 text-left hover:bg-secondary/60"
                       >
                         <p className="text-sm font-medium text-foreground">{item.title}</p>
                         <p className="mt-1 text-xs text-muted-foreground">{item.message}</p>

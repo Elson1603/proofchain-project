@@ -152,7 +152,7 @@ export function ProjectDetailsWorkspace({ mode, navItems }: ProjectDetailsWorksp
       workspaceLabel={isClient ? "Client OS" : isFreelancer ? "Freelance OS" : "ProofChain OS"}
     >
       {loading ? (
-        <div className="glass-panel rounded-xl p-5 text-sm text-muted-foreground">Loading projects...</div>
+        <div className="glass-panel shine-panel rounded-xl p-5 text-sm text-muted-foreground">Loading projects...</div>
       ) : mode !== "shared" && !user ? (
         <EmptyProjectState message="Connect your wallet to load your project workspace." />
       ) : isFreelancer ? (
@@ -289,7 +289,7 @@ function ProjectHistory({
   const totalBudget = projects.reduce((sum, project) => sum + (project.budget ?? 0), 0);
 
   return (
-    <section className="glass-panel rounded-xl p-5">
+    <section className="glass-panel shine-panel rounded-xl p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-foreground">{title}</h2>
@@ -310,7 +310,7 @@ function ProjectHistory({
               key={project.id}
               type="button"
               onClick={() => onSelectProject(project.id)}
-              className={`surface-panel rounded-xl border p-4 text-left transition hover:border-primary/45 hover:bg-primary/5 ${
+              className={`surface-panel interactive-card rounded-xl border p-4 text-left hover:bg-primary/5 ${
                 isSelected ? "border-primary/60 bg-primary/10" : "border-border/70"
               }`}
             >
@@ -346,7 +346,7 @@ function AvailableProjectsSection({
   if (!projects.length) return null;
 
   return (
-    <section className="glass-panel rounded-xl p-5">
+    <section className="glass-panel shine-panel rounded-xl p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-foreground">Available projects</h2>
@@ -361,7 +361,7 @@ function AvailableProjectsSection({
           const milestoneCount = project.milestones?.length ?? 0;
 
           return (
-            <article key={project.id} className="surface-panel rounded-xl p-4">
+            <article key={project.id} className="surface-panel activity-row rounded-xl p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -432,7 +432,7 @@ function ProjectView({ project, mode }: { project: ApiProject; mode: ProjectDeta
   return (
     <section className="grid gap-4 lg:grid-cols-[1.08fr_0.92fr]">
       <div className="space-y-4">
-        <article className="glass-panel rounded-xl p-5">
+        <article className="glass-panel shine-panel rounded-xl p-5">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">{project.id}</p>
           <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -475,12 +475,12 @@ function ProjectView({ project, mode }: { project: ApiProject; mode: ProjectDeta
 
         <TimelineCard title={isClient ? "Approval timeline" : "Delivery timeline"} items={timeline} />
 
-        <article className="glass-panel rounded-xl p-5">
+        <article className="glass-panel shine-panel rounded-xl p-5">
           <h2 className="text-base font-semibold text-foreground">Latest submissions</h2>
           <div className="mt-3 space-y-2">
             {submissions.length ? (
               submissions.slice(0, 4).map((submission) => (
-                <p key={submission.id} className="surface-panel rounded-lg p-3 text-sm text-muted-foreground">
+                <p key={submission.id} className="surface-panel activity-row rounded-lg p-3 text-sm text-muted-foreground">
                   {submission.fileName || submission.githubLink || submission.demoLink || shortHash(submission.ipfsCid ?? submission.id)}
                 </p>
               ))
@@ -526,7 +526,7 @@ function dedupeProjects(projects: ApiProject[]) {
 
 function EmptyProjectState({ message, action }: { message: string; action?: ReactNode }) {
   return (
-    <div className="glass-panel rounded-xl p-6">
+    <div className="glass-panel shine-panel rounded-xl p-6">
       <ShieldCheck className="h-5 w-5 text-primary" />
       <p className="mt-3 text-sm text-muted-foreground">{message}</p>
       {action ? <div className="mt-5">{action}</div> : null}
@@ -580,7 +580,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function TimelineCard({ title, items }: { title: string; items: Array<{ label: string; detail: string }> }) {
   return (
-    <article className="glass-panel rounded-xl p-5">
+    <article className="glass-panel shine-panel rounded-xl p-5">
       <h2 className="text-base font-semibold text-foreground">{title}</h2>
       <div className="mt-4 space-y-3">
         {items.length ? (
@@ -607,11 +607,11 @@ function InfoCard({ title, lines, icon }: { title: string; lines: string[]; icon
   const Icon = icon === "file" ? Paperclip : ShieldCheck;
 
   return (
-    <article className="glass-panel rounded-xl p-5">
+    <article className="glass-panel shine-panel rounded-xl p-5">
       <h2 className="text-base font-semibold text-foreground">{title}</h2>
       <div className="mt-3 space-y-2 text-sm text-muted-foreground">
         {lines.slice(0, 6).map((line, index) => (
-          <p key={`${line}-${index}`} className="surface-panel flex items-center gap-2 rounded-md p-2">
+          <p key={`${line}-${index}`} className="surface-panel activity-row flex items-center gap-2 rounded-md p-2">
             {index === lines.length - 1 ? (
               <Timer className="h-4 w-4 text-info" />
             ) : (

@@ -115,7 +115,7 @@ function FreelancerDashboardPage() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
-            className="glass-panel rounded-xl p-4"
+            className="glass-panel shine-panel interactive-card rounded-xl p-4"
           >
             <div className="inline-flex rounded-md bg-secondary p-2">
               <metric.icon className="h-4 w-4 text-primary" />
@@ -127,7 +127,7 @@ function FreelancerDashboardPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="glass-panel rounded-xl p-4">
+        <div className="glass-panel shine-panel rounded-xl p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">Transaction activity graph</h2>
             <BarChart3 className="h-4 w-4 text-info" />
@@ -156,7 +156,7 @@ function FreelancerDashboardPage() {
           </div>
         </div>
 
-        <div className="glass-panel rounded-xl p-4">
+        <div className="glass-panel shine-panel rounded-xl p-4">
           <h2 className="text-base font-semibold text-foreground">Recent transactions</h2>
           <div className="mt-3 space-y-2">
             {!user ? (
@@ -165,7 +165,7 @@ function FreelancerDashboardPage() {
               <div className="surface-panel rounded-lg p-3 text-sm text-muted-foreground">Loading transactions...</div>
             ) : payments.length ? (
               payments.slice(0, 5).map((payment) => (
-              <div key={payment.id} className="surface-panel rounded-lg p-3">
+              <div key={payment.id} className="surface-panel activity-row rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">{shortHash(payment.transactions?.[0]?.txHash)}</p>
                 <p className="text-sm text-foreground">{payment.project?.title ?? payment.type.replace(/_/g, " ")}</p>
                 <div className="mt-1 flex items-center justify-between text-xs">

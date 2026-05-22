@@ -98,7 +98,7 @@ function ClientDashboardPage() {
       workspaceLabel="Client OS"
       notificationCount={unreadCount}
     >
-      <section className="glass-panel flex flex-wrap items-center justify-between gap-3 rounded-xl p-4">
+      <section className="glass-panel shine-panel flex flex-wrap items-center justify-between gap-3 rounded-xl p-4">
         <div>
           <h2 className="text-base font-semibold text-foreground">Create a client project</h2>
           <p className="mt-1 text-sm text-muted-foreground">Add scope, budget, and milestones before inviting a freelancer.</p>
@@ -113,7 +113,7 @@ function ClientDashboardPage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
-          <article key={stat.label} className="glass-panel rounded-xl p-4">
+          <article key={stat.label} className="glass-panel shine-panel interactive-card rounded-xl p-4">
             <stat.icon className="h-5 w-5 text-primary" />
             <p className="mt-2 text-xs text-muted-foreground">{stat.label}</p>
             <p className="mt-1 text-xl font-bold text-foreground">{stat.value}</p>
@@ -122,7 +122,7 @@ function ClientDashboardPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <article className="glass-panel rounded-xl p-4">
+        <article className="glass-panel shine-panel rounded-xl p-4">
           <h2 className="text-base font-semibold text-foreground">Freelancer submissions</h2>
           <div className="mt-3 space-y-2">
             {!user ? (
@@ -131,7 +131,7 @@ function ClientDashboardPage() {
               <div className="surface-panel rounded-lg p-3 text-sm text-muted-foreground">Loading submissions...</div>
             ) : submissions.length ? (
               submissions.slice(0, 6).map((submission) => (
-              <div key={submission.id} className="surface-panel rounded-lg p-3">
+              <div key={submission.id} className="surface-panel activity-row rounded-lg p-3">
                 <p className="text-sm text-foreground">{submission.milestone?.project?.title ?? "Untitled project"}</p>
                 <p className="text-xs text-muted-foreground">
                   {userDisplayName(submission.submittedBy)} · {submission.milestone?.title ?? "Milestone"}
@@ -148,7 +148,7 @@ function ClientDashboardPage() {
           </div>
         </article>
 
-        <article className="glass-panel rounded-xl p-4">
+        <article className="glass-panel shine-panel rounded-xl p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">Notification center</h2>
             <button
@@ -173,7 +173,7 @@ function ClientDashboardPage() {
                 type="button"
                 onClick={() => void openNotification(item, markRead)}
                 className={cn(
-                  "surface-panel w-full rounded-lg p-3 text-left text-sm transition",
+                  "surface-panel activity-row w-full rounded-lg p-3 text-left text-sm",
                   item.isRead ? "text-muted-foreground" : "border border-primary/30 text-foreground",
                 )}
               >
