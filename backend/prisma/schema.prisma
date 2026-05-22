@@ -33,11 +33,20 @@ model User {
   notifications      Notification[]
   paymentsAsPayee    Payment[]         @relation("PaymentPayee")
   paymentsAsPayer    Payment[]         @relation("PaymentPayer")
+  adminAuditLogs      AdminAuditLog[]   @relation("AdminAuditActor")
+  adminSuspensions    UserSuspension[]  @relation("SuspensionAdmin")
+  assignedDisputes    Dispute[]         @relation("DisputeAssignedAdmin")
+  assignedFraudAlerts FraudAlert[]      @relation("FraudAlertAssignee")
+  disputeResolutions  DisputeResolution[] @relation("DisputeResolutionAdmin")
+  disputesAgainst     Dispute[]         @relation("DisputeAgainstUser")
+  disputesRaised      Dispute[]         @relation("DisputeRaisedBy")
+  fraudAlerts         FraudAlert[]      @relation("FraudAlertUser")
   nftCertificates    NftCertificate[]
   freelancerProjects Project[]         @relation("FreelancerProjects")
   invitedProjects    Project[]         @relation("InvitedProjects")
   projects           Project[]         @relation("OwnerProjects")
   sessions           Session[]
+  userSuspensions     UserSuspension[]  @relation("SuspendedUser")
   submissions        Submission[]
   linkedWallets      UserWallet[]
 
@@ -86,6 +95,7 @@ model Project {
   freelancerId        String?       @db.Uuid
   invitedFreelancerId String?       @db.Uuid
   conversation        Conversation?
+  disputes            Dispute[]
   milestones          Milestone[]
   payments            Payment[]
   nftCertificates     NftCertificate[]
@@ -109,6 +119,7 @@ model Milestone {
   createdAt   DateTime     @default(now())
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   payments    Payment[]
+  disputes    Dispute[]
   submissions Submission[]
 
   @@index([projectId])
@@ -177,6 +188,8 @@ model Payment {
   submission    Submission?   @relation(fields: [submissionId], references: [id], onDelete: Restrict)
   nftCertificate NftCertificate?
   transactions  Transaction[]
+  disputeResolutions DisputeResolution[]
+  transactionMonitorings TransactionMonitoring[]
 
   @@index([projectId, status, createdAt])
   @@index([payeeId, status, createdAt])
@@ -211,6 +224,7 @@ model Transaction {
   updatedAt        DateTime          @updatedAt
   payment          Payment?          @relation(fields: [paymentId], references: [id])
   nftCertificate   NftCertificate?   @relation(fields: [nftCertificateId], references: [id], onDelete: SetNull)
+  monitoring        TransactionMonitoring?
 
   @@index([paymentId, createdAt])
   @@index([status, createdAt])
@@ -282,6 +296,7 @@ model NftCertificate {
   project           Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
   payment           Payment?             @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   transactions      Transaction[]
+  transactionMonitorings TransactionMonitoring[]
 
   @@unique([projectId])
   @@index([userId])
@@ -376,10 +391,171 @@ model Attachment {
   @@index([fileType])
 }
 
+model AdminAuditLog {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminId       String?  @db.Uuid
+  actionType    String
+  entityType    String
+  entityId      String?
+  previousValue Json?
+  newValue      Json?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+  admin         User?    @relation("AdminAuditActor", fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([adminId, createdAt])
+  @@index([entityType, entityId])
+  @@index([actionType, createdAt])
+  @@index([createdAt])
+}
+
+model FraudAlert {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String?            @db.Uuid
+  assignedAdminId String?            @db.Uuid
+  type            String
+  severity        FraudAlertSeverity @default(MEDIUM)
+  status          FraudAlertStatus   @default(OPEN)
+  riskScore       Int                @default(0)
+  title           String
+  description     String?
+  entityType      String
+  entityId        String?
+  walletAddress   String?
+  txHash          String?
+  signals         Json               @default("{}")
+  detectedAt      DateTime           @default(now())
+  resolvedAt      DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  user            User?              @relation("FraudAlertUser", fields: [userId], references: [id], onDelete: SetNull)
+  assignedAdmin   User?              @relation("FraudAlertAssignee", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+
+  @@index([status, severity, createdAt])
+  @@index([riskScore, createdAt])
+  @@index([userId, createdAt])
+  @@index([walletAddress])
+  @@index([txHash])
+  @@index([entityType, entityId])
+}
+
+model UserSuspension {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String           @db.Uuid
+  adminId     String?          @db.Uuid
+  status      SuspensionStatus @default(ACTIVE)
+  reason      String
+  startsAt    DateTime         @default(now())
+  endsAt      DateTime?
+  revokedAt   DateTime?
+  metadata    Json             @default("{}")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  user        User             @relation("SuspendedUser", fields: [userId], references: [id], onDelete: Cascade)
+  admin       User?            @relation("SuspensionAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([adminId, createdAt])
+  @@index([status, endsAt])
+}
+
+model Dispute {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId       String          @db.Uuid
+  milestoneId     String?         @db.Uuid
+  raisedById      String          @db.Uuid
+  againstUserId   String?         @db.Uuid
+  assignedAdminId String?         @db.Uuid
+  status          DisputeStatus   @default(OPEN)
+  priority        String          @default("medium")
+  reason          String
+  description     String?
+  evidence        Json            @default("{}")
+  walletActivity  Json            @default("{}")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  resolvedAt      DateTime?
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone       Milestone?      @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  raisedBy        User            @relation("DisputeRaisedBy", fields: [raisedById], references: [id], onDelete: Cascade)
+  againstUser     User?           @relation("DisputeAgainstUser", fields: [againstUserId], references: [id], onDelete: SetNull)
+  assignedAdmin   User?           @relation("DisputeAssignedAdmin", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  resolutions     DisputeResolution[]
+
+  @@index([projectId, status])
+  @@index([milestoneId])
+  @@index([raisedById, createdAt])
+  @@index([againstUserId, createdAt])
+  @@index([assignedAdminId, status])
+  @@index([status, createdAt])
+}
+
+model DisputeResolution {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  disputeId        String                @db.Uuid
+  adminId          String?               @db.Uuid
+  paymentId        String?               @db.Uuid
+  action           DisputeResolutionType
+  notes            String
+  releaseAmount    Float?
+  refundAmount     Float?
+  freelancerAmount Float?
+  clientAmount     Float?
+  previousValue    Json?
+  newValue         Json?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  dispute          Dispute               @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  admin            User?                 @relation("DisputeResolutionAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+  payment          Payment?              @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([disputeId, createdAt])
+  @@index([adminId, createdAt])
+  @@index([action, createdAt])
+  @@index([paymentId])
+}
+
+model TransactionMonitoring {
+  id               String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transactionId    String?                     @unique @db.Uuid
+  paymentId        String?                     @db.Uuid
+  nftCertificateId String?                     @db.Uuid
+  txHash           String?
+  chainId          Int                         @default(84532)
+  category         TransactionMonitoringCategory
+  status           TransactionMonitoringStatus @default(PENDING)
+  gasQuote         Float?
+  gasQuoteCurrency String?
+  latencyMs        Int?
+  retryAttempts    Int                         @default(0)
+  explorerUrl      String?
+  failureReason    String?
+  riskScore        Int                         @default(0)
+  metadata         Json                        @default("{}")
+  lastSyncedAt     DateTime?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+  transaction      Transaction?                @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  payment          Payment?                    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  nftCertificate   NftCertificate?             @relation(fields: [nftCertificateId], references: [id], onDelete: SetNull)
+
+  @@index([txHash])
+  @@index([status, createdAt])
+  @@index([category, status])
+  @@index([paymentId, createdAt])
+  @@index([nftCertificateId, createdAt])
+  @@index([riskScore, createdAt])
+}
+
 enum UserRole {
   FREELANCER
   CLIENT
   ADMIN
+  SUPER_ADMIN
+  MODERATOR
+  SUPPORT_ADMIN
+  BLOCKCHAIN_ADMIN
 }
 
 enum MessageType {
@@ -440,4 +616,56 @@ enum NftCertificateStatus {
   verified
   failed
   revoked
+}
+
+enum FraudAlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FraudAlertStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  DISMISSED
+}
+
+enum SuspensionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  ESCALATED
+  RESOLVED
+  REJECTED
+}
+
+enum DisputeResolutionType {
+  RELEASE_PAYMENT
+  REFUND_CLIENT
+  SPLIT_PAYMENT
+  REQUEST_EVIDENCE
+  REJECT_DISPUTE
+}
+
+enum TransactionMonitoringCategory {
+  UGF_PAYMENT
+  ESCROW_RELEASE
+  NFT_MINT
+  GASLESS_EXECUTION
+  INDEXER_EVENT
+}
+
+enum TransactionMonitoringStatus {
+  PENDING
+  PROCESSING
+  CONFIRMED
+  FAILED
+  REVERTED
 }

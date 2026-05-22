@@ -48,8 +48,8 @@ export const globalRateLimiter = createRateLimiter({
 })
 
 export const authRateLimiter = createRateLimiter({
-  windowMs: numberFromEnv('AUTH_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
-  max: numberFromEnv('AUTH_RATE_LIMIT_MAX', 20),
+  windowMs: numberFromEnv('AUTH_RATE_LIMIT_WINDOW_MS', 5 * 60 * 1000),
+  max: numberFromEnv('AUTH_RATE_LIMIT_MAX', 500),
   message: 'Too many authentication requests. Please wait before trying again.',
   code: 'AUTH_RATE_LIMIT_EXCEEDED',
 })
@@ -66,6 +66,13 @@ export const paymentRateLimiter = createRateLimiter({
   max: numberFromEnv('PAYMENT_RATE_LIMIT_MAX', 30),
   message: 'Too many payment requests. Please try again later.',
   code: 'PAYMENT_RATE_LIMIT_EXCEEDED',
+})
+
+export const adminRateLimiter = createRateLimiter({
+  windowMs: numberFromEnv('ADMIN_RATE_LIMIT_WINDOW_MS', 60 * 1000),
+  max: numberFromEnv('ADMIN_RATE_LIMIT_MAX', 120),
+  message: 'Too many admin requests. Please slow down before continuing.',
+  code: 'ADMIN_RATE_LIMIT_EXCEEDED',
 })
 
 export const messageRateLimiter = createRateLimiter({

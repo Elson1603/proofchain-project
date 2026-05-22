@@ -4,7 +4,7 @@ import cors, { CorsOptions } from 'cors'
 import helmet from 'helmet'
 import type { HelmetOptions } from 'helmet'
 import morgan from 'morgan'
-import { authRateLimiter, globalRateLimiter, paymentRateLimiter } from './rateLimit.middleware'
+import { adminRateLimiter, authRateLimiter, globalRateLimiter, paymentRateLimiter } from './rateLimit.middleware'
 
 const { clean: cleanXss } = require('xss-clean/lib/xss') as { clean: (value: unknown) => unknown }
 const hpp = require('hpp') as (options?: { whitelist?: string[] }) => express.RequestHandler
@@ -110,5 +110,6 @@ export function setupSecurityMiddleware(app: express.Express) {
 
 export function setupRouteSecurity(app: express.Express) {
   app.use('/api/auth', authRateLimiter)
+  app.use('/api/admin', adminRateLimiter)
   app.use('/api/payments', paymentRateLimiter)
 }

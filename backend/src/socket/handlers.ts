@@ -1,4 +1,5 @@
 import type { Server, Socket } from 'socket.io'
+import { isAdminRole } from '../modules/auth/types'
 import { isAppError, AppError } from '../utils/errors'
 import type {
   ClientToServerEvents,
@@ -35,6 +36,10 @@ export function userRoom(userId: string) {
 
 export function projectRoom(projectId: string) {
   return `project_${projectId}`
+}
+
+export function adminRoom() {
+  return 'admin_operations'
 }
 
 function toSocketError(error: unknown): SocketErrorResponse {
@@ -153,6 +158,10 @@ export function registerSocketHandlers(io: TypedServer, options: SocketInitOptio
 
     if (user?.userId) {
       void socket.join(userRoom(user.userId))
+    }
+
+    if (isAdminRole(user?.role)) {
+      void socket.join(adminRoom())
     }
 
     const projectIds = [

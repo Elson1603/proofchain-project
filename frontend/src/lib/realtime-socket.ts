@@ -71,6 +71,29 @@ export type NotificationPayload = {
   message?: string;
 };
 
+export type AdminRealtimePayload = {
+  type:
+    | "dispute_raised"
+    | "dispute_resolved"
+    | "escrow_issue"
+    | "tx_failure"
+    | "tx_retry"
+    | "fraud_alert"
+    | "nft_minted"
+    | "ugf_update"
+    | "project_activity"
+    | "user_moderation"
+    | "system_warning";
+  severity?: "info" | "success" | "warning" | "critical";
+  title: string;
+  message?: string;
+  entityType?: string;
+  entityId?: string;
+  txHash?: string;
+  createdAt?: string;
+  meta?: Record<string, unknown>;
+};
+
 export type SocketErrorPayload = {
   success: false;
   statusCode: number;
@@ -90,6 +113,7 @@ export interface RealtimeServerToClientEvents {
   certificate_verified: (payload: NftBroadcastPayload) => void;
   new_message: (payload: NewMessagePayload) => void;
   notification: (payload: NotificationPayload) => void;
+  admin_event: (payload: AdminRealtimePayload) => void;
 }
 
 export interface RealtimeClientToServerEvents {

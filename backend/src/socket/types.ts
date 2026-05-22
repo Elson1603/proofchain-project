@@ -96,6 +96,29 @@ export type NotificationPayload = {
   message?: string
 }
 
+export type AdminRealtimePayload = {
+  type:
+    | 'dispute_raised'
+    | 'dispute_resolved'
+    | 'escrow_issue'
+    | 'tx_failure'
+    | 'tx_retry'
+    | 'fraud_alert'
+    | 'nft_minted'
+    | 'ugf_update'
+    | 'project_activity'
+    | 'user_moderation'
+    | 'system_warning'
+  severity?: 'info' | 'success' | 'warning' | 'critical'
+  title: string
+  message?: string
+  entityType?: string
+  entityId?: string
+  txHash?: string
+  createdAt?: string
+  meta?: Record<string, unknown>
+}
+
 export type PlatformBroadcastEvent =
   | 'submission_uploaded'
   | 'project_updated'
@@ -130,6 +153,7 @@ export interface ServerToClientEvents {
   message_reaction_removed: (payload: unknown) => void
   file_uploaded: (payload: unknown) => void
   notification: (payload: NotificationPayload) => void
+  admin_event: (payload: AdminRealtimePayload) => void
   typing_start: (payload: unknown) => void
   typing_stop: (payload: unknown) => void
 }

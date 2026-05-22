@@ -151,7 +151,7 @@ function NftCertificatesPage() {
         className="glass-panel rounded-xl p-4"
       >
         <p className="text-sm text-primary">Mint success</p>
-        <p className="mt-1 text-sm text-foreground">Live certificate data now comes from the backend NFT API instead of mock arrays.</p>
+        <p className="mt-1 text-sm text-foreground">Certificate data is loaded from the backend NFT API.</p>
       </motion.div>
     </DashboardShell>
   );

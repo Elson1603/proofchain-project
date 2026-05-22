@@ -1,4 +1,5 @@
 import type {
+  AdminRealtimePayload,
   NftMintedPayload,
   NewMessagePayload,
   PaymentCompletedPayload,
@@ -6,7 +7,8 @@ import type {
   SubmissionUploadedPayload,
   TransactionStatusUpdatedPayload,
 } from './types'
-import { broadcastEvent, emitToProject } from './socket'
+import { broadcastEvent, emitToProject, getIO } from './socket'
+import { adminRoom } from './handlers'
 
 export const platformEvents = {
   submission_uploaded: 'submission_uploaded',
@@ -74,4 +76,15 @@ export function broadcastNftMinted(payload: NftMintedPayload) {
 
 export function broadcastNewMessage(payload: NewMessagePayload) {
   broadcastEvent(platformEvents.new_message, payload)
+}
+
+export function broadcastAdminEvent(payload: AdminRealtimePayload) {
+  try {
+    getIO().to(adminRoom()).emit('admin_event', {
+      ...payload,
+      createdAt: payload.createdAt ?? new Date().toISOString(),
+    })
+  } catch (error) {
+    console.warn('[socket] admin_event skipped', error)
+  }
 }

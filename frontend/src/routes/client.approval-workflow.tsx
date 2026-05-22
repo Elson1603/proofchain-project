@@ -5,11 +5,19 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import { Interface, type TransactionRequest } from "ethers";
 import { useUGFModal } from "@tychilabs/react-ugf";
 import { DashboardShell } from "@/components/proofchain/dashboard-shell";
-import { submissions } from "@/components/proofchain/mock-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { escrowAbi } from "@/lib/escrow-abi";
 import { ESCROW_CONTRACT_ADDRESS, connectWallet, getEscrowContract, requireEscrowAddress } from "@/lib/escrow";
+import {
+  fetchCurrentUser,
+  fetchSubmissions,
+  formatDateTime,
+  shortHash,
+  userDisplayName,
+  type ApiSubmission,
+  type ApiUser,
+} from "@/lib/proofchain-api";
 
 export const Route = createFileRoute("/client/approval-workflow")({
   head: () => ({
@@ -33,8 +41,11 @@ const clientNav = [
 
 function ApprovalWorkflowPage() {
   const { openUGF, result } = useUGFModal();
+  const [user, setUser] = useState<ApiUser | null>(null);
+  const [submissions, setSubmissions] = useState<ApiSubmission[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(true);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [projectChainId, setProjectChainId] = useState("0");
+  const [projectChainId, setProjectChainId] = useState("");
   const [milestoneIndex, setMilestoneIndex] = useState("0");
   const [projectId, setProjectId] = useState("");
   const [milestoneId, setMilestoneId] = useState("");
@@ -183,18 +194,43 @@ function ApprovalWorkflowPage() {
     });
   };
 
-  const handleSubmissionDecision = (
-    submission: (typeof submissions)[number],
-    action: "approve" | "reject",
-    index: number,
-  ) => {
-    setSubmissionId(submission.hash);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSubmissions() {
+      setSubmissionsLoading(true);
+      const me = await fetchCurrentUser();
+      const nextSubmissions = me ? await fetchSubmissions().catch(() => null) : [];
+
+      if (!cancelled) {
+        setUser(me);
+        setSubmissions((nextSubmissions ?? []).filter((submission) => submission.milestone?.project?.ownerId === me?.id));
+        setSubmissionsLoading(false);
+      }
+    }
+
+    void loadSubmissions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSubmissionDecision = (submission: ApiSubmission, action: "approve" | "reject", index: number) => {
+    const project = submission.milestone?.project;
+
+    setSubmissionId(submission.id);
+    setMilestoneId(submission.milestoneId);
+    setProjectId(project?.id ?? "");
+    setPayerId(project?.ownerId ?? "");
+    setPayeeId(submission.submittedById);
+    setAmount(String(submission.milestone?.amount ?? ""));
     setMilestoneIndex(String(index));
     setPaymentType(action === "approve" ? "milestone_release" : "milestone_rejected");
     setStatus(
       action === "approve"
-        ? `${submission.project} selected. Review the escrow fields, then run Approve milestone.`
-        : `${submission.project} selected for rejection. Review the project chain ID, then run Raise dispute.`,
+        ? `${project?.title ?? "Submission"} selected. Review the escrow fields, then run Approve milestone.`
+        : `${project?.title ?? "Submission"} selected for rejection. Review the project chain ID, then run Raise dispute.`,
     );
   };
 
@@ -425,11 +461,18 @@ function ApprovalWorkflowPage() {
         <article className="glass-panel rounded-xl p-4">
           <h2 className="text-base font-semibold text-foreground">Pending submissions</h2>
           <div className="mt-4 space-y-3">
-            {submissions.map((submission, index) => (
-              <div key={submission.hash} className="surface-panel rounded-lg p-3">
-                <p className="text-sm font-medium text-foreground">{submission.project}</p>
-                <p className="text-xs text-muted-foreground">{submission.freelancer}</p>
-                <p className="mt-2 text-xs text-primary">Proof hash: {submission.hash}</p>
+            {!user ? (
+              <div className="surface-panel rounded-lg p-3 text-sm text-muted-foreground">Connect a client wallet to load submissions.</div>
+            ) : submissionsLoading ? (
+              <div className="surface-panel rounded-lg p-3 text-sm text-muted-foreground">Loading submissions...</div>
+            ) : submissions.length ? (
+              submissions.map((submission, index) => (
+              <div key={submission.id} className="surface-panel rounded-lg p-3">
+                <p className="text-sm font-medium text-foreground">{submission.milestone?.project?.title ?? "Untitled project"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {userDisplayName(submission.submittedBy)} · {submission.milestone?.title ?? "Milestone"} · {formatDateTime(submission.createdAt)}
+                </p>
+                <p className="mt-2 text-xs text-primary">Proof: {shortHash(submission.ipfsCid ?? submission.id)}</p>
                 <div className="mt-3 flex gap-2">
                   <Button
                     size="sm"
@@ -452,7 +495,10 @@ function ApprovalWorkflowPage() {
                   </Button>
                 </div>
               </div>
-            ))}
+              ))
+            ) : (
+              <div className="surface-panel rounded-lg p-3 text-sm text-muted-foreground">No submitted milestones are waiting for review.</div>
+            )}
           </div>
         </article>
         <motion.article
@@ -469,19 +515,15 @@ function ApprovalWorkflowPage() {
           </div>
 
           <div className="mt-4 space-y-2">
-            {["Client signature received", "UGF relay dispatch", "Base Sepolia confirmation", "SBT mint queued"].map(
-              (step, index) => (
-                <motion.div
-                  key={step}
-                  initial={{ opacity: 0.45 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ repeat: Number.POSITIVE_INFINITY, duration: 1.2, delay: index * 0.2 }}
-                  className="surface-panel rounded-md p-2 text-xs text-foreground"
-                >
-                  {step}
-                </motion.div>
-              ),
-            )}
+            <div className="surface-panel rounded-md p-2 text-xs text-foreground">
+              Selected project ID: {projectId || "None selected"}
+            </div>
+            <div className="surface-panel rounded-md p-2 text-xs text-foreground">
+              Selected submission ID: {submissionId || "None selected"}
+            </div>
+            <div className="surface-panel rounded-md p-2 text-xs text-foreground">
+              Last UGF transaction: {txHash ? shortHash(txHash) : "None submitted"}
+            </div>
           </div>
         </motion.article>
       </section>

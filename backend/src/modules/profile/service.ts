@@ -31,7 +31,10 @@ const normalizeSkills = (skills?: string[] | null) => {
 
 const userProfileSelect = {
   id: true,
+  fullName: true,
   username: true,
+  walletAddress: true,
+  isVerified: true,
   bio: true,
   avatarUrl: true,
   githubUrl: true,

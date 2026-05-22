@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { USER_ROLES } from './types'
+import { PUBLIC_AUTH_ROLES } from './types'
 import { validate } from '../../utils/validation'
 
 const walletAddressSchema = z
@@ -17,7 +17,7 @@ export const verifySchema = z.object({
   body: z.object({
     walletAddress: walletAddressSchema,
     signature: z.string().trim().min(20, 'Signature is required'),
-    role: z.enum(USER_ROLES).default('FREELANCER'),
+    role: z.enum(PUBLIC_AUTH_ROLES).default('FREELANCER'),
   }),
 })
 

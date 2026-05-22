@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { authenticate } from '../../middleware/auth.middleware'
-import { authorizeRoles } from '../../middleware/role.middleware'
+import { requireAdminRole } from '../../middleware/role.middleware'
 import { nftController } from './controller'
 import { validateMintCertificate, validateProjectParam, validateTokenParam, validateWalletParam } from './validation'
 
@@ -156,7 +156,7 @@ const router = Router()
  *       201:
  *         description: Certificate record created.
  */
-router.post('/mint', authenticate(), authorizeRoles('ADMIN'), validateMintCertificate, nftController.mint)
+router.post('/mint', authenticate(), requireAdminRole('ADMIN', 'SUPER_ADMIN', 'BLOCKCHAIN_ADMIN'), validateMintCertificate, nftController.mint)
 router.get('/verify/:tokenId', validateTokenParam, nftController.verify)
 router.get('/explorer/:tokenId', validateTokenParam, nftController.explorer)
 router.get('/user/:wallet', validateWalletParam, nftController.getByWallet)

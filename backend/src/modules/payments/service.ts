@@ -372,6 +372,52 @@ export const paymentsService = {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
+        project: {
+          include: {
+            owner: {
+              select: {
+                id: true,
+                fullName: true,
+                username: true,
+                walletAddress: true,
+                avatarUrl: true,
+                role: true,
+              },
+            },
+            freelancer: {
+              select: {
+                id: true,
+                fullName: true,
+                username: true,
+                walletAddress: true,
+                avatarUrl: true,
+                role: true,
+              },
+            },
+          },
+        },
+        milestone: true,
+        submission: true,
+        payer: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            walletAddress: true,
+            avatarUrl: true,
+            role: true,
+          },
+        },
+        payee: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            walletAddress: true,
+            avatarUrl: true,
+            role: true,
+          },
+        },
         transactions: {
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -384,6 +430,16 @@ export const paymentsService = {
     return prisma.payment.findUnique({
       where: { id },
       include: {
+        project: {
+          include: {
+            owner: true,
+            freelancer: true,
+          },
+        },
+        milestone: true,
+        submission: true,
+        payer: true,
+        payee: true,
         transactions: {
           orderBy: { createdAt: 'desc' },
         },

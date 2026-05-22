@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { shortenWalletAddress, useWalletAddress } from "@/hooks/use-wallet-address";
 
 const links = [
-  { to: "/", label: "Features" },
-  { to: "/", label: "How It Works" },
+  { href: "/#features", label: "Features" },
+  { href: "/#how-it-works", label: "How It Works" },
   { to: "/developers", label: "Developers" },
   { to: "/freelancer/dashboard", label: "Dashboard" },
 ];
@@ -27,14 +27,24 @@ export function ProofChainTopNav() {
 
         <nav className="hidden items-center gap-6 md:flex">
           {links.map((link) => (
-            <Link
-              key={link.label}
-              to={link.to}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              activeProps={{ className: "text-foreground" }}
-            >
-              {link.label}
-            </Link>
+            "href" in link ? (
+              <a
+                key={link.label}
+                href={link.href}
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {link.label}
+              </a>
+            ) : (
+              <Link
+                key={link.label}
+                to={link.to}
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                activeProps={{ className: "text-foreground" }}
+              >
+                {link.label}
+              </Link>
+            )
           ))}
         </nav>
 

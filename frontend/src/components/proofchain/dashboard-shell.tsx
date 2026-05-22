@@ -27,7 +27,7 @@ export function DashboardShell({
 }: DashboardShellProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const walletAddress = useWalletAddress();
-  const walletLabel = walletAddress ? shortenWalletAddress(walletAddress) : "Wallet Connected";
+  const walletLabel = walletAddress ? shortenWalletAddress(walletAddress) : "No wallet";
 
   return (
     <div className="min-h-screen bg-background">

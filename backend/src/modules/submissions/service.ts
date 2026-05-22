@@ -47,11 +47,70 @@ export const submissionsService = {
     return prisma.submission.findMany({
       where,
       orderBy: { createdAt: 'desc' },
+      include: {
+        submittedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            walletAddress: true,
+            avatarUrl: true,
+            role: true,
+          },
+        },
+        milestone: {
+          include: {
+            project: {
+              include: {
+                owner: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    username: true,
+                    walletAddress: true,
+                    avatarUrl: true,
+                    role: true,
+                  },
+                },
+                freelancer: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    username: true,
+                    walletAddress: true,
+                    avatarUrl: true,
+                    role: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     })
   },
 
   async getById(id: string) {
-    return prisma.submission.findUnique({ where: { id } })
+    return prisma.submission.findUnique({
+      where: { id },
+      include: {
+        submittedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            username: true,
+            walletAddress: true,
+            avatarUrl: true,
+            role: true,
+          },
+        },
+        milestone: {
+          include: {
+            project: true,
+          },
+        },
+      },
+    })
   },
 
   async create(data: CreateSubmissionInput) {

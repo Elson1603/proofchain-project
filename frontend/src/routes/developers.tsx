@@ -1,8 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { ArrowRight, Code2, Cpu, Database, ShieldCheck } from "lucide-react";
-import { architectureNodes, codePreview } from "@/components/proofchain/mock-data";
 import { ProofChainTopNav } from "@/components/proofchain/top-nav";
+
+const architectureNodes = [
+  "Freelancer UI",
+  "Client Review",
+  "Escrow Contract",
+  "UGF Relayer",
+  "Base Sepolia",
+  "SBT Minter",
+];
+
+const codePreview = `function releasePayment(projectId: bytes32) external onlyClient(projectId) {
+  require(state[projectId] == State.Approved, "Not approved");
+  ugf.executeGasless(
+    abi.encodeWithSelector(token.transfer.selector, freelancer[projectId], amount[projectId])
+  );
+  sbt.mintProof(freelancer[projectId], projectId);
+}`;
 
 export const Route = createFileRoute("/developers")({
   head: () => ({

@@ -57,6 +57,17 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  fetchNftCertificates,
+  fetchPayments,
+  fetchProjects,
+  getStoredAccessToken,
+  updateMyProfile,
+  type ApiNftCertificate,
+  type ApiPayment,
+  type ApiProject,
+  type ApiUser,
+} from "@/lib/proofchain-api";
 import { cn } from "@/lib/utils";
 import { useForm } from "react-hook-form";
 
@@ -162,18 +173,8 @@ function resolveApiBaseUrl(): string {
   return raw.replace(/\/$/, "");
 }
 
-function getStoredAccessToken() {
-  if (typeof window === "undefined") return null;
-
-  return (
-    window.localStorage.getItem("proofchain_access_token") ??
-    window.localStorage.getItem("accessToken") ??
-    window.localStorage.getItem("token")
-  );
-}
-
 function shortenWallet(address: string) {
-  if (!address) return "";
+  if (!address) return "Not connected";
   const head = address.slice(0, 6);
   const tail = address.slice(-4);
   return `${head}…${tail}`;
@@ -213,158 +214,154 @@ function availabilityDot(status: UserProfile["availability"]) {
   return "bg-muted-foreground";
 }
 
-function seededMockData() {
-  const profile: UserProfile = {
-    id: "ff37cb08-c6b6-46ed-958b-b2dc73e0a631",
-    name: "Elson K.",
-    username: "elson1603",
-    walletAddress: "0xf2a3B4dB88C0cBA2b2f0eE9c1f8aB1D6e2c1Aa77",
-    verified: true,
-    level: "Level 4",
-    reputationScore: 87,
-    availability: "available",
-    title: "Full‑stack Web3 developer",
-    bio: "Full-stack Web3 developer specializing in Solidity, React, and decentralized applications. I ship auditable smart contracts, clean UI systems, and IPFS-backed delivery proofs — optimized for gasless UGF settlement.",
-    yearsExperience: 6,
-    skills: [
-      "Solidity",
-      "React",
-      "Node.js",
-      "TypeScript",
-      "Smart Contracts",
-      "IPFS",
-      "UGF",
-    ],
-    socials: {
-      github: "https://github.com/elson1603",
-      linkedin: "https://www.linkedin.com/in/elson1603",
-      portfolio: "https://proofchain.dev/elson",
-      twitter: "https://x.com/elson1603",
-    },
-    avatarUrl:
-      "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=256&q=80",
+function createEmptyProfile(): UserProfile {
+  return {
+    id: "",
+    name: "Your ProofChain profile",
+    username: "not-set",
+    walletAddress: "",
+    verified: false,
+    level: "Level 0",
+    reputationScore: 0,
+    availability: "unavailable",
+    title: "Freelancer profile",
+    bio: "No bio added yet.",
+    yearsExperience: 0,
+    skills: [],
+    socials: {},
     stats: {
-      completedProjects: 18,
-      activeProjects: 2,
-      totalEarningsUsd: 32840,
-      nftsEarned: 24,
-      successRate: 98,
+      completedProjects: 0,
+      activeProjects: 0,
+      totalEarningsUsd: 0,
+      nftsEarned: 0,
+      successRate: 0,
     },
   };
-
-  const certificates: NFTCertificate[] = [
-    {
-      id: "PC-SBT-1025",
-      projectTitle: "Gasless escrow release workflow",
-      issuedAt: "2026-05-12",
-      previewUrl:
-        "https://images.unsplash.com/photo-1642104704073-907c7f6e61f3?auto=format&fit=crop&w=900&q=80",
-      chainLabel: "Base Sepolia",
-      verified: true,
-    },
-    {
-      id: "PC-SBT-1009",
-      projectTitle: "On-chain milestone attestations",
-      issuedAt: "2026-04-26",
-      previewUrl:
-        "https://images.unsplash.com/photo-1642427749670-f20e2f9832c9?auto=format&fit=crop&w=900&q=80",
-      chainLabel: "Base Sepolia",
-      verified: true,
-    },
-    {
-      id: "PC-SBT-0981",
-      projectTitle: "IPFS proof-of-delivery pipeline",
-      issuedAt: "2026-04-03",
-      previewUrl:
-        "https://images.unsplash.com/photo-1642427749678-8e7fc4c1aa30?auto=format&fit=crop&w=900&q=80",
-      chainLabel: "Base Sepolia",
-      verified: true,
-    },
-  ];
-
-  const projects: Project[] = [
-    {
-      id: "PC-82941",
-      title: "UGF settlement + escrow routing",
-      clientName: "Arbor Labs",
-      status: "completed",
-      milestonesDone: 5,
-      milestonesTotal: 5,
-      paymentUsd: 2400,
-      ugfGasless: true,
-      txHash: "0xf2a3…71e9",
-    },
-    {
-      id: "PC-82710",
-      title: "SBT minting + metadata anchoring",
-      clientName: "Vector Studio",
-      status: "review",
-      milestonesDone: 3,
-      milestonesTotal: 4,
-      paymentUsd: 1800,
-      ugfGasless: true,
-      txHash: "0x90c4…8821",
-    },
-    {
-      id: "PC-82002",
-      title: "Proofchain dashboard polish",
-      clientName: "Nimbus Co",
-      status: "active",
-      milestonesDone: 1,
-      milestonesTotal: 3,
-      paymentUsd: 1200,
-      ugfGasless: true,
-      txHash: "0x1d2b…a9f0",
-    },
-  ];
-
-  const activity: ActivityItem[] = [
-    {
-      id: "act-1",
-      type: "submitted",
-      title: "Work submitted",
-      description: "Milestone 03 deliverables uploaded to IPFS (CID anchored).",
-      timestamp: "Today · 2:14 PM",
-    },
-    {
-      id: "act-2",
-      type: "payment",
-      title: "Payment released",
-      description: "UGF executed gasless escrow payout for PC-82941.",
-      timestamp: "Today · 2:18 PM",
-    },
-    {
-      id: "act-3",
-      type: "minted",
-      title: "SBT minted",
-      description: "Soulbound certificate minted for Milestone 03 completion.",
-      timestamp: "Today · 2:22 PM",
-    },
-    {
-      id: "act-4",
-      type: "completed",
-      title: "Project completed",
-      description: "PC-82941 marked as completed with on-chain verification.",
-      timestamp: "Yesterday · 6:42 PM",
-    },
-  ];
-
-  const earnings: EarningsPoint[] = [
-    { label: "Jan", earnings: 2100 },
-    { label: "Feb", earnings: 3400 },
-    { label: "Mar", earnings: 2800 },
-    { label: "Apr", earnings: 6100 },
-    { label: "May", earnings: 7200 },
-    { label: "Jun", earnings: 5300 },
-  ];
-
-  return { profile, certificates, projects, activity, earnings };
 }
 
-async function fetchMyProfile(apiBaseUrl: string): Promise<UserProfile> {
-  const mock = seededMockData().profile;
+function displayName(user: Pick<ApiUser, "fullName" | "username" | "walletAddress"> | null | undefined) {
+  return user?.fullName || user?.username || (user?.walletAddress ? shortenWallet(user.walletAddress) : "Unknown");
+}
+
+function profileFromApi(me: ApiUser): UserProfile {
+  const reputationScore = Number(me.reputationScore ?? 0);
+  const skills = Array.isArray(me.skills) ? me.skills : [];
+
+  return {
+    ...createEmptyProfile(),
+    id: me.id,
+    name: displayName(me),
+    username: me.username ?? "not-set",
+    walletAddress: me.walletAddress ?? "",
+    verified: Boolean(me.isVerified),
+    level: `Level ${Math.max(0, Math.floor(reputationScore / 25))}`,
+    reputationScore,
+    availability: "available",
+    title: skills.length ? `${skills.slice(0, 3).join(" / ")} freelancer` : "ProofChain freelancer",
+    bio: me.bio || "No bio added yet.",
+    skills,
+    socials: {
+      github: me.githubUrl ?? undefined,
+      linkedin: me.linkedinUrl ?? undefined,
+      portfolio: me.portfolioUrl ?? undefined,
+    },
+    avatarUrl: me.avatarUrl ?? me.profileImage ?? undefined,
+  };
+}
+
+function calculateStats(projects: ApiProject[], payments: ApiPayment[], certificates: ApiNftCertificate[]) {
+  const completedProjects = projects.filter((project) => project.status === "completed").length;
+  const activeProjects = projects.filter((project) => !["completed", "rejected", "draft"].includes(project.status)).length;
+  const totalEarningsUsd = payments
+    .filter((payment) => payment.status === "released")
+    .reduce((sum, payment) => sum + payment.amount, 0);
+  const settledProjects = new Set(payments.filter((payment) => payment.status === "released").map((payment) => payment.projectId));
+  const successRate = projects.length ? Math.round((settledProjects.size / projects.length) * 100) : 0;
+
+  return {
+    completedProjects,
+    activeProjects,
+    totalEarningsUsd,
+    nftsEarned: certificates.length,
+    successRate,
+  };
+}
+
+function mapCertificate(cert: ApiNftCertificate): NFTCertificate {
+  return {
+    id: `PC-SBT-${cert.tokenId}`,
+    projectTitle: cert.project?.title ?? "ProofChain certificate",
+    issuedAt: cert.mintedAt ? new Date(cert.mintedAt).toLocaleDateString() : "Pending",
+    previewUrl: "",
+    chainLabel: "Base Sepolia",
+    verified: ["minted", "verified"].includes(cert.certificateStatus),
+  };
+}
+
+function mapProject(project: ApiProject): Project {
+  const milestones = project.milestones ?? [];
+  const payments = project.payments ?? [];
+  const latestTx = payments.flatMap((payment) => payment.transactions ?? [])[0];
+  const paymentTotal = payments.reduce((sum, payment) => sum + payment.amount, 0);
+
+  return {
+    id: project.id,
+    title: project.title,
+    clientName: displayName(project.owner),
+    status: project.status === "completed" ? "completed" : ["submitted", "approved"].includes(project.status) ? "review" : "active",
+    milestonesDone: milestones.filter((milestone) => milestone.status === "completed").length,
+    milestonesTotal: milestones.length,
+    paymentUsd: paymentTotal || project.budget || 0,
+    ugfGasless: payments.some((payment) => Boolean(payment.transactions?.length)),
+    txHash: latestTx?.txHash ? shortenWallet(latestTx.txHash) : "Pending",
+  };
+}
+
+function buildActivity(projects: ApiProject[], payments: ApiPayment[], certificates: ApiNftCertificate[]): ActivityItem[] {
+  const paymentActivity = payments.slice(0, 4).map((payment) => ({
+    id: `payment-${payment.id}`,
+    type: "payment" as const,
+    title: payment.type.replace(/_/g, " "),
+    description: `${payment.project?.title ?? "Project"} - ${payment.status}`,
+    timestamp: payment.releasedAt ? new Date(payment.releasedAt).toLocaleString() : new Date(payment.createdAt).toLocaleString(),
+  }));
+
+  const certificateActivity = certificates.slice(0, 3).map((cert) => ({
+    id: `minted-${cert.id}`,
+    type: "minted" as const,
+    title: `Certificate #${cert.tokenId}`,
+    description: cert.project?.title ?? cert.metadataURI,
+    timestamp: cert.mintedAt ? new Date(cert.mintedAt).toLocaleString() : new Date(cert.createdAt).toLocaleString(),
+  }));
+
+  const projectActivity = projects.slice(0, 3).map((project) => ({
+    id: `project-${project.id}`,
+    type: project.status === "completed" ? ("completed" as const) : ("submitted" as const),
+    title: project.title,
+    description: `Project status: ${project.status.replace(/_/g, " ")}`,
+    timestamp: project.updatedAt ? new Date(project.updatedAt).toLocaleString() : new Date(project.createdAt).toLocaleString(),
+  }));
+
+  return [...paymentActivity, ...certificateActivity, ...projectActivity].slice(0, 8);
+}
+
+function buildEarnings(payments: ApiPayment[]): EarningsPoint[] {
+  const monthTotals = new Map<string, number>();
+
+  payments
+    .filter((payment) => payment.status === "released")
+    .forEach((payment) => {
+      const date = new Date(payment.releasedAt ?? payment.createdAt);
+      const label = date.toLocaleString(undefined, { month: "short" });
+      monthTotals.set(label, (monthTotals.get(label) ?? 0) + payment.amount);
+    });
+
+  return Array.from(monthTotals.entries()).map(([label, earnings]) => ({ label, earnings }));
+}
+
+async function fetchMyProfile(apiBaseUrl: string): Promise<UserProfile | null> {
   const token = getStoredAccessToken();
-  if (!apiBaseUrl || !token) return mock;
+  if (!apiBaseUrl || !token) return null;
 
   try {
     const response = await fetch(`${apiBaseUrl}/api/profile/me`, {
@@ -385,32 +382,19 @@ async function fetchMyProfile(apiBaseUrl: string): Promise<UserProfile> {
       portfolioUrl: string | null;
       skills: string[];
       reputationScore: number;
+      fullName?: string | null;
+      walletAddress?: string | null;
+      isVerified?: boolean;
     }>;
 
     if (!response.ok || !payload.success) {
-      return mock;
+      return null;
     }
 
     const me = payload.data;
-    return {
-      ...mock,
-      id: me.id,
-      username: me.username ?? mock.username,
-      bio: me.bio ?? mock.bio,
-      avatarUrl: me.avatarUrl ?? mock.avatarUrl,
-      socials: {
-        ...mock.socials,
-        github: me.githubUrl ?? mock.socials.github,
-        linkedin: me.linkedinUrl ?? mock.socials.linkedin,
-        portfolio: me.portfolioUrl ?? mock.socials.portfolio,
-      },
-      skills: Array.isArray(me.skills) ? me.skills : mock.skills,
-      reputationScore: Number.isFinite(me.reputationScore)
-        ? me.reputationScore
-        : mock.reputationScore,
-    };
+    return profileFromApi(me);
   } catch {
-    return mock;
+    return null;
   }
 }
 
@@ -478,14 +462,13 @@ function EmptyState({
 
 function FreelancerProfilePage() {
   const apiBaseUrl = useMemo(() => resolveApiBaseUrl(), []);
-  const seeded = useMemo(() => seededMockData(), []);
 
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<UserProfile>(seeded.profile);
-  const [certificates, setCertificates] = useState<NFTCertificate[]>(seeded.certificates);
-  const [projects, setProjects] = useState<Project[]>(seeded.projects);
-  const [activity, setActivity] = useState<ActivityItem[]>(seeded.activity);
-  const [earnings] = useState<EarningsPoint[]>(seeded.earnings);
+  const [profile, setProfile] = useState<UserProfile>(() => createEmptyProfile());
+  const [certificates, setCertificates] = useState<NFTCertificate[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [earnings, setEarnings] = useState<EarningsPoint[]>([]);
 
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -494,23 +477,54 @@ function FreelancerProfilePage() {
 
   useEffect(() => {
     let cancelled = false;
-    const timer = window.setTimeout(() => {
-      if (cancelled) return;
-      void fetchMyProfile(apiBaseUrl).then((next) => {
+
+    async function loadProfile() {
+      setLoading(true);
+      const nextProfile = await fetchMyProfile(apiBaseUrl);
+
+      if (!nextProfile) {
         if (!cancelled) {
-          setProfile(next);
+          setProfile(createEmptyProfile());
+          setCertificates([]);
+          setProjects([]);
+          setActivity([]);
+          setEarnings([]);
           setLoading(false);
         }
-      });
-    }, 520);
+        return;
+      }
+
+      const [apiProjects, apiPayments, apiCertificates] = await Promise.all([
+        fetchProjects({ freelancerId: nextProfile.id }).catch(() => null),
+        fetchPayments({ payeeId: nextProfile.id }).catch(() => null),
+        fetchNftCertificates(nextProfile.walletAddress).catch(() => null),
+      ]);
+
+      if (!cancelled) {
+        const realProjects = apiProjects ?? [];
+        const realPayments = apiPayments ?? [];
+        const realCertificates = apiCertificates ?? [];
+        setProfile({
+          ...nextProfile,
+          stats: calculateStats(realProjects, realPayments, realCertificates),
+        });
+        setCertificates(realCertificates.map(mapCertificate));
+        setProjects(realProjects.map(mapProject));
+        setActivity(buildActivity(realProjects, realPayments, realCertificates));
+        setEarnings(buildEarnings(realPayments));
+        setLoading(false);
+      }
+    }
+
+    void loadProfile();
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
     };
   }, [apiBaseUrl]);
 
   const shareUrl = useMemo(() => {
+    if (!profile.id) return "";
     try {
       return new URL(`/profile/${profile.id}`, window.location.origin).toString();
     } catch {
@@ -545,6 +559,11 @@ function FreelancerProfilePage() {
   }, [editOpen, form, profile]);
 
   async function copyWallet() {
+    if (!profile.walletAddress) {
+      toast.error("No wallet connected");
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(profile.walletAddress);
       toast.success("Wallet copied");
@@ -594,25 +613,32 @@ function FreelancerProfilePage() {
 
     setSaving(true);
     try {
-      await new Promise((r) => setTimeout(r, 720));
-      setProfile((prev) => ({
-        ...prev,
+      if (avatarDraftUrl) {
+        toast.info("Avatar upload storage is not configured yet; profile text fields will be saved.");
+      }
+
+      const updated = await updateMyProfile({
         username: values.username,
-        bio: values.bio?.trim() ? values.bio.trim() : prev.bio,
-        skills: nextSkills.length ? nextSkills : prev.skills,
-        avatarUrl: avatarDraftUrl ?? prev.avatarUrl,
-        socials: {
-          ...prev.socials,
-          github: values.githubUrl?.trim() ? values.githubUrl.trim() : undefined,
-          linkedin: values.linkedinUrl?.trim() ? values.linkedinUrl.trim() : undefined,
-          portfolio: values.portfolioUrl?.trim() ? values.portfolioUrl.trim() : undefined,
-        },
+        bio: values.bio?.trim() || null,
+        skills: nextSkills,
+        githubUrl: values.githubUrl?.trim() || null,
+        linkedinUrl: values.linkedinUrl?.trim() || null,
+        portfolioUrl: values.portfolioUrl?.trim() || null,
+      });
+
+      if (!updated) {
+        throw new Error("Profile update failed");
+      }
+
+      setProfile((prev) => ({
+        ...profileFromApi(updated),
+        stats: prev.stats,
       }));
 
       toast.success("Profile updated");
       setEditOpen(false);
-    } catch {
-      toast.error("Failed to save changes");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save changes");
     } finally {
       setSaving(false);
     }
@@ -628,11 +654,9 @@ function FreelancerProfilePage() {
     setAvatarDraftUrl(url);
   }
 
-  const completionDensity = clamp(
-    Math.round((profile.stats.completedProjects / Math.max(1, profile.stats.completedProjects + 6)) * 100),
-    25,
-    95,
-  );
+  const completionDensity = profile.stats.completedProjects
+    ? clamp(Math.round((profile.stats.completedProjects / Math.max(1, projects.length)) * 100), 0, 100)
+    : 0;
 
   return (
     <DashboardShell
@@ -708,7 +732,7 @@ function FreelancerProfilePage() {
                     <DialogHeader>
                       <DialogTitle>Edit profile</DialogTitle>
                       <DialogDescription>
-                        Update your public info. Backend integration will wire this to `PATCH /api/profile/me`.
+                        Update your public info. Changes are saved through `PATCH /api/profile/me`.
                       </DialogDescription>
                     </DialogHeader>
 
@@ -760,7 +784,7 @@ function FreelancerProfilePage() {
                             <div className="space-y-2">
                               <p className="text-sm font-medium text-foreground">Wallet</p>
                               <div className="rounded-md border border-border/70 bg-secondary px-3 py-2 text-sm text-muted-foreground">
-                                {profile.walletAddress}
+                                {profile.walletAddress || "Not connected"}
                               </div>
                               <p className="text-xs text-muted-foreground">Wallet is managed by auth.</p>
                             </div>
@@ -925,7 +949,7 @@ function FreelancerProfilePage() {
               </Badge>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              {profile.skills.map((skill) => (
+              {profile.skills.length ? profile.skills.map((skill) => (
                 <motion.span
                   key={skill}
                   whileHover={{ y: -2 }}
@@ -933,7 +957,9 @@ function FreelancerProfilePage() {
                 >
                   {skill}
                 </motion.span>
-              ))}
+              )) : (
+                <p className="text-sm text-muted-foreground">No skills added yet.</p>
+              )}
             </div>
           </motion.div>
 
@@ -963,30 +989,36 @@ function FreelancerProfilePage() {
                 </Badge>
               </div>
               <div className="mt-4 h-44">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={earnings} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.18} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                    <YAxis tickLine={false} axisLine={false} width={42} />
-                    <Tooltip
-                      contentStyle={{
-                        background: "var(--color-background)",
-                        border: "1px solid oklch(0.29 0.015 248 / 0.7)",
-                        borderRadius: 12,
-                      }}
-                      cursor={{ fill: "oklch(0.22 0.01 252 / 0.6)" }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="earnings"
-                      stroke="var(--color-chart-2)"
-                      fill="var(--color-chart-2)"
-                      fillOpacity={0.18}
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {earnings.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={earnings} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.18} />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                      <YAxis tickLine={false} axisLine={false} width={42} />
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--color-background)",
+                          border: "1px solid oklch(0.29 0.015 248 / 0.7)",
+                          borderRadius: 12,
+                        }}
+                        cursor={{ fill: "oklch(0.22 0.01 252 / 0.6)" }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="earnings"
+                        stroke="var(--color-chart-2)"
+                        fill="var(--color-chart-2)"
+                        fillOpacity={0.18}
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center rounded-lg border border-border/70 bg-secondary/30 text-sm text-muted-foreground">
+                    No released payment data yet.
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
@@ -1010,12 +1042,18 @@ function FreelancerProfilePage() {
                     className="glass-panel overflow-hidden rounded-xl"
                   >
                     <div className="relative h-28 overflow-hidden">
-                      <img
-                        src={cert.previewUrl}
-                        alt={cert.projectTitle}
-                        className="h-full w-full object-cover opacity-85"
-                        loading="lazy"
-                      />
+                      {cert.previewUrl ? (
+                        <img
+                          src={cert.previewUrl}
+                          alt={cert.projectTitle}
+                          className="h-full w-full object-cover opacity-85"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-secondary/60">
+                          <BadgeCheck className="h-8 w-8 text-primary" />
+                        </div>
+                      )}
                       <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/10 to-transparent" />
                       <div className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface-glass px-3 py-1 text-xs text-muted-foreground backdrop-blur">
                         <BadgeCheck className="h-3.5 w-3.5 text-primary" />
@@ -1216,8 +1254,8 @@ function FreelancerProfilePage() {
           </div>
 
           <div className="glass-panel rounded-xl p-4">
-            <p className="text-sm font-semibold text-foreground">Loading state</p>
-            <p className="mt-1 text-xs text-muted-foreground">Prepared for API integration with `GET /api/profile/me`.</p>
+            <p className="text-sm font-semibold text-foreground">Data source</p>
+            <p className="mt-1 text-xs text-muted-foreground">Profile, projects, payments, and certificates are loaded from the backend API.</p>
             <div className="mt-4 space-y-3">
               {loading ? (
                 <div className="space-y-3">
@@ -1228,9 +1266,9 @@ function FreelancerProfilePage() {
               ) : (
                 <div className="surface-panel rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">Status</p>
-                  <p className="mt-1 text-sm font-medium text-foreground">Ready</p>
+                  <p className="mt-1 text-sm font-medium text-foreground">{profile.id ? "Live data loaded" : "No authenticated profile"}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Use cookies/session auth, then hydrate this page from the backend.
+                    {profile.id ? "This page is using live backend records." : "Connect a wallet and complete authentication to populate this page."}
                   </p>
                 </div>
               )}

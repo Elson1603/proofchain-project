@@ -51,6 +51,57 @@ const ensureValidStatus = (status?: string): status is ProjectStatus => {
   return PROJECT_STATUSES.includes(status as ProjectStatus)
 }
 
+const projectRelations = {
+  owner: {
+    select: {
+      id: true,
+      fullName: true,
+      username: true,
+      email: true,
+      walletAddress: true,
+      avatarUrl: true,
+      role: true,
+    },
+  },
+  freelancer: {
+    select: {
+      id: true,
+      fullName: true,
+      username: true,
+      email: true,
+      walletAddress: true,
+      avatarUrl: true,
+      role: true,
+    },
+  },
+  invitedFreelancer: {
+    select: {
+      id: true,
+      fullName: true,
+      username: true,
+      email: true,
+      walletAddress: true,
+      avatarUrl: true,
+      role: true,
+    },
+  },
+  payments: {
+    orderBy: { createdAt: 'desc' as const },
+    include: {
+      transactions: {
+        orderBy: { createdAt: 'desc' as const },
+        take: 1,
+      },
+    },
+  },
+  nftCertificates: {
+    orderBy: { createdAt: 'desc' as const },
+  },
+  disputes: {
+    orderBy: { createdAt: 'desc' as const },
+  },
+}
+
 export const projectsService = {
   async list(filters: ProjectListFilters = {}) {
     const where: Record<string, unknown> = {}
@@ -82,7 +133,27 @@ export const projectsService = {
       where,
       orderBy: { createdAt: 'desc' },
       include: {
-        milestones: { orderBy: { createdAt: 'asc' } },
+        ...projectRelations,
+        milestones: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            submissions: {
+              orderBy: { createdAt: 'desc' },
+              include: {
+                submittedBy: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    username: true,
+                    walletAddress: true,
+                    avatarUrl: true,
+                    role: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     })
   },
@@ -91,9 +162,35 @@ export const projectsService = {
     return prisma.project.findUnique({
       where: { id },
       include: {
+        ...projectRelations,
         milestones: {
           orderBy: { createdAt: 'asc' },
-          include: { submissions: true },
+          include: {
+            payments: {
+              orderBy: { createdAt: 'desc' },
+              include: {
+                transactions: {
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
+              },
+            },
+            submissions: {
+              orderBy: { createdAt: 'desc' },
+              include: {
+                submittedBy: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    username: true,
+                    walletAddress: true,
+                    avatarUrl: true,
+                    role: true,
+                  },
+                },
+              },
+            },
+          },
         },
       },
     })

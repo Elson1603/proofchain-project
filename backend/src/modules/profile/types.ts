@@ -20,7 +20,10 @@ export class NotFoundError extends Error {
 
 export type UserProfile = {
   id: string
+  fullName: string | null
   username: string | null
+  walletAddress: string
+  isVerified: boolean
   bio: string | null
   avatarUrl: string | null
   githubUrl: string | null

@@ -50,10 +50,10 @@ function IndexPage() {
       <ProofChainTopNav />
       <main>
         <LandingHero />
-        <section id="features">
+        <section id="features" className="scroll-mt-20">
           <FeatureGrid />
         </section>
-        <section id="how-it-works">
+        <section id="how-it-works" className="scroll-mt-20">
           <HowItWorks />
         </section>
         <LiveTransactions />

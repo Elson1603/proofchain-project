@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client'
 import prisma from '../../config/db'
 import {
   DeviceContext,
+  PUBLIC_AUTH_ROLES,
   UserRole,
 } from './types'
 import {
@@ -130,6 +131,10 @@ export const authService = {
   ) {
     const walletAddress = normalizeWalletAddress(walletAddressInput)
     const now = new Date()
+
+    if (!(PUBLIC_AUTH_ROLES as readonly string[]).includes(role)) {
+      throw new Error('Admin roles can only be assigned from the admin console')
+    }
 
     const user = await findUserByAnyWallet(walletAddress)
 
